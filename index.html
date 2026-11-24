@@ -7,6 +7,9 @@
 <meta name="description" content="브라우저에서 바로 즐기는 블록 건축 놀이. 폰과 PC 어디서나 나만의 네모 세상을 짓고 저장하세요.">
 <meta name="theme-color" content="#9fd4ff">
 <meta property="og:title" content="네모건축가">
+<meta property="og:url" content="https://nemo-builder.pages.dev/">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://nemo-builder.pages.dev/">
 <meta property="og:description" content="블록을 쌓아 나만의 세상을 짓는 웹 건축 게임">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='6' fill='%236cbb3c'/%3E%3Crect y='6' width='16' height='10' fill='%238b5a2b'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -173,6 +176,10 @@ body.touch .slot { width: 44px; height: 44px; }
 .topbar .btn { flex-shrink: 0; white-space: nowrap; }
 .topbar .chip { min-width: 0; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 480px) { .topbar .lbl { display: none; } }
+
+.site { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin-top: 10px; }
+.site a { color: var(--grass-dark); font-size: 1rem; text-decoration: none; border-bottom: 2px solid currentColor; }
+.site a:hover { color: var(--grass); }
 </style>
 <script>
 // ▼ Firebase 설정 (로그인 · 클라우드 저장 · 같이 짓기). 비워 두면 혼자 하기 + 이 기기 저장만 됩니다.
@@ -239,6 +246,10 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
       </div>
     </details>
     <p id="saveFoot" class="foot">작업한 월드는 이 브라우저에 자동 저장돼요</p>
+    <div class="site">
+      <a href="https://nemo-builder.pages.dev/" target="_blank" rel="noopener">🌐 nemo-builder.pages.dev</a>
+      <button id="btnShare" class="btn small">🔗 주소 공유</button>
+    </div>
   </div>
 </section>
 
@@ -1706,6 +1717,23 @@ $("loginForm").onsubmit = (e) => {
 $("btnSignup").onclick = () => authDo(() => signupEmail(email(), pw(), $("nickInput").value.trim()));
 $("btnGoogle").onclick = () => authDo(loginGoogle);
 $("btnGuest").onclick = () => authDo(loginGuest);
+var SITE_URL = "https://nemo-builder.pages.dev/";
+$("btnShare").onclick = async () => {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "네모건축가", text: "블록을 쌓아 나만의 세상을 지어 보세요!", url: SITE_URL });
+      return;
+    } catch (e) {
+      if (e.name === "AbortError") return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(SITE_URL);
+    toast("사이트 주소를 복사했어요 🔗");
+  } catch {
+    prompt("이 주소를 복사해 주세요", SITE_URL);
+  }
+};
 $("btnResume").onclick = play;
 $("btnSave").onclick = () => doSave(true);
 $("btnSavePause").onclick = () => doSave(true);
