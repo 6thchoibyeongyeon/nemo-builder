@@ -113,7 +113,7 @@ body { position: fixed; inset: 0; user-select: none; -webkit-user-select: none; 
   text-align: center; font-size: .8rem; color: rgba(255,255,255,.85); text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 #blockName.show + #hotbar ~ .pc-hint { opacity: 0; }
 
-#toast { position: fixed; left: 50%; top: 64px; transform: translate(-50%, -10px); z-index: 20; pointer-events: none;
+#toast { position: fixed; left: 50%; top: 92px; transform: translate(-50%, -10px); z-index: 20; pointer-events: none;
   background: var(--paper); border: 3px solid var(--ink); border-radius: 10px; padding: .45em 1em; box-shadow: 0 3px 0 var(--ink);
   opacity: 0; transition: opacity .2s, transform .2s; white-space: nowrap; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -185,6 +185,31 @@ body.touch .slot { width: 44px; height: 44px; }
   font-size: .9rem; line-height: 1.5; text-align: center; color: #5a4520; }
 .note .btn { margin: 6px 0; }
 .note small { display: block; color: var(--muted); }
+
+/* ---------- 맵·모드 선택 ---------- */
+.label { margin: 10px 0 6px; color: var(--muted); }
+.types { margin-bottom: 4px; }
+.types span { font-size: 1rem; padding: 10px; }
+.card.center { text-align: center; }
+.surv-help { font-size: .88rem; line-height: 1.6; color: #4b3f30; margin: 10px 0 0; }
+
+/* ---------- 서바이벌 HUD ---------- */
+#hearts { position: absolute; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 46px); transform: translateX(-50%);
+  display: flex; gap: 2px; font-size: 1.25rem; line-height: 1; filter: drop-shadow(0 2px 0 rgba(0,0,0,.45)); }
+#hearts i { font-style: normal; color: #ef4d5a; }
+#hearts i.h { background: linear-gradient(90deg, #ef4d5a 50%, #5a4a4a 50%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#hearts i.e { color: #5a4a4a; }
+.chip.clock { flex-shrink: 0; }
+#mineBar { position: absolute; left: 50%; top: calc(50% + 22px); width: 64px; height: 7px; transform: translateX(-50%);
+  background: rgba(0,0,0,.45); border-radius: 4px; overflow: hidden; }
+#mineBar i { display: block; height: 100%; width: 0; background: #ffd166; }
+#hurtFx { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 120px 30px rgba(230, 40, 40, .7); }
+#hurtFx.on { animation: hurt .5s ease-out; }
+@keyframes hurt { from { opacity: 1; } to { opacity: 0; } }
+.slot em { position: absolute; right: 3px; bottom: 1px; font-style: normal; font-size: .75rem; color: #fff; text-shadow: 0 1px 0 #000, 0 0 3px #000; }
+.slot.none img { opacity: .3; }
+body.surv #tFly { visibility: hidden; }
+body.surv .pc-hint { display: none; }
 </style>
 <script>
 // ▼ Firebase 설정 (로그인 · 클라우드 저장 · 같이 짓기). 비워 두면 혼자 하기 + 이 기기 저장만 됩니다.
@@ -208,9 +233,13 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
 <!-- 게임 화면 UI -->
 <div id="hud" hidden>
   <div class="crosshair"></div>
+  <div id="hurtFx"></div>
+  <div id="hearts" hidden></div>
+  <div id="mineBar" hidden><i></i></div>
   <div class="topbar">
     <span id="worldName" class="chip"></span>
     <span id="roomChip" class="chip room" hidden></span>
+    <span id="clock" class="chip clock" hidden>☀ 낮</span>
     <button id="btnSave" class="btn small">💾<span class="lbl"> 저장</span></button>
     <button id="btnMenu" class="btn small" aria-label="메뉴">☰</button>
   </div>
@@ -251,6 +280,7 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
         <div><b>💻 PC</b><br>WASD 이동, 마우스로 둘러보기<br>좌클릭 부수기 · 우클릭 놓기<br>Space 점프 · F 비행 · Shift 내려가기<br>휠·숫자키로 블록 고르기</div>
         <div><b>📱 폰</b><br>왼쪽 조이스틱으로 이동<br>화면을 끌어서 둘러보기<br>⛏ 부수기 · 🧱 놓기 (꾹 누르면 연속)<br>⬆ 점프 · ✈ 비행</div>
       </div>
+      <p class="surv-help"><b>⚔ 서바이벌</b> 블록을 꾹 눌러 캐면 가방에 모여요. 놓을 때는 가방에서 하나씩 써요. 밤이 되면 '그림자 네모'가 나타나니 부수기(⛏/좌클릭)로 물리치세요. 높은 곳에서 떨어지면 다쳐요!</p>
     </details>
     <p id="saveFoot" class="foot">작업한 월드는 이 브라우저에 자동 저장돼요</p>
     <div class="site">
@@ -267,9 +297,17 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
     <label class="field">월드 이름
       <input id="worldNameInput" maxlength="20" autocomplete="off">
     </label>
+    <p class="label">맵</p>
     <div class="types">
       <label><input type="radio" name="type" value="nature" checked><span>🌳 자연<small>언덕과 나무가 있는 섬</small></span></label>
       <label><input type="radio" name="type" value="flat"><span>🟩 평지<small>건축하기 좋은 넓은 땅</small></span></label>
+      <label><input type="radio" name="type" value="city"><span>🏙 작은 도시<small>도로·빌딩·공원·분수</small></span></label>
+      <label><input type="radio" name="type" value="village"><span>🌾 농촌<small>밭·나무 집·건초 더미</small></span></label>
+    </div>
+    <p class="label">모드</p>
+    <div class="types">
+      <label><input type="radio" name="mode" value="creative" checked><span>🎨 크리에이티브<small>모든 블록 무한 · 비행 가능</small></span></label>
+      <label><input type="radio" name="mode" value="survival"><span>⚔ 서바이벌<small>블록을 캐서 모으고 밤을 버티기</small></span></label>
     </div>
     <button class="btn primary wide" type="submit">만들기</button>
     <button id="btnCancelNew" class="btn ghost wide" type="button">돌아가기</button>
@@ -292,6 +330,16 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
     </div>
     <button id="btnSavePause" class="btn wide">💾 저장하기</button>
     <button id="btnTitle" class="btn ghost wide">처음 화면으로</button>
+  </div>
+</section>
+
+<!-- 서바이벌: 쓰러짐 -->
+<section id="dead" class="overlay" hidden>
+  <div class="card narrow center">
+    <h2>쓰러졌어요 😵</h2>
+    <p class="tagline">가방의 블록은 그대로 있어요.</p>
+    <button id="btnRespawn" class="btn primary wide">다시 일어나기</button>
+    <button id="btnDeadTitle" class="btn ghost wide">처음 화면으로</button>
   </div>
 </section>
 
@@ -344,10 +392,168 @@ var __export = (target2, all) => {
 };
 
 // ===== main.js =====
-import * as THREE3 from "three";
+import * as THREE4 from "three";
 
 // ===== world.js =====
 import * as THREE from "three";
+
+// ===== gen.js =====
+var GRASS = 1;
+var DIRT = 2;
+var STONE = 3;
+var TILES = 4;
+var LOG = 5;
+var PLANKS = 6;
+var BRICK = 7;
+var GLASS = 8;
+var BUSH = 10;
+var WHITE = 11;
+var RED = 12;
+var BLUE = 13;
+var YELLOW = 14;
+var PINK = 15;
+var PURPLE = 16;
+var FARM = 17;
+var CROP = 18;
+var HAY = 19;
+var pick = (rnd, arr) => arr[Math.floor(rnd() * arr.length)];
+function building(w, x0, z0, x1, z1, base, h, mat, rnd, doorSide = "z0") {
+  for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
+    w.set(x, base, z, PLANKS);
+    const edge = x === x0 || x === x1 || z === z0 || z === z1;
+    const corner = (x === x0 || x === x1) && (z === z0 || z === z1);
+    for (let y = base + 1; y <= base + h; y++) {
+      if (!edge) {
+        w.set(x, y, z, 0);
+        continue;
+      }
+      const lv = y - base - 1;
+      const win = !corner && lv % 3 === 1 && (x + z) % 2 === 0;
+      w.set(x, y, z, win ? GLASS : mat);
+    }
+    w.set(x, base + h + 1, z, edge ? WHITE : mat);
+  }
+  const mx = x0 + x1 >> 1, mz = z0 + z1 >> 1;
+  const [dx, dz] = { z0: [mx, z0], z1: [mx, z1], x0: [x0, mz], x1: [x1, mz] }[doorSide];
+  w.set(dx, base + 1, dz, 0);
+  w.set(dx, base + 2, dz, 0);
+}
+function genCity(w, rnd) {
+  const G = 3, { sx, sz } = w;
+  for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
+    for (let y = 0; y < G; y++) w.set(x, y, z, STONE);
+    w.set(x, G, z, GRASS);
+  }
+  const road = (v) => v >= 14 && v <= 16 || v >= 31 && v <= 33;
+  for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
+    if (!road(x) && !road(z)) continue;
+    const line = (x === 15 || x === 32) && !road(z) && z % 4 < 2 || (z === 15 || z === 32) && !road(x) && x % 4 < 2;
+    w.set(x, G, z, line ? YELLOW : STONE);
+  }
+  const cells = [[0, 13], [17, 30], [34, 47]];
+  cells.forEach(([a, b], i) => cells.forEach(([c, d], j) => {
+    for (let x = a; x <= b; x++) for (let z = c; z <= d; z++)
+      if (x === a || x === b || z === c || z === d) w.set(x, G, z, TILES);
+    for (const [lx, lz] of [[a, c], [b, c], [a, d], [b, d]]) {
+      for (let y = G + 1; y <= G + 3; y++) w.set(lx, y, lz, WHITE);
+      w.set(lx, G + 4, lz, YELLOW);
+    }
+    if (i === 1 && j === 1) {
+      const cx = a + b >> 1, cz = c + d >> 1;
+      for (let x = cx - 2; x <= cx + 2; x++) for (let z = cz - 2; z <= cz + 2; z++) {
+        const rim = Math.abs(x - cx) === 2 || Math.abs(z - cz) === 2;
+        if (rim) w.set(x, G + 1, z, WHITE);
+        else w.set(x, G, z, BLUE);
+      }
+      w.set(cx, G + 1, cz, WHITE);
+      w.set(cx, G + 2, cz, BLUE);
+      for (const [tx, tz] of [[a + 3, c + 3], [b - 3, c + 3], [a + 3, d - 3], [b - 3, d - 3]]) w.tree(tx, G, tz, rnd);
+      for (let x = a + 1; x < b; x++) for (const z of [c + 1, d - 1]) if (rnd() < 0.5) w.set(x, G + 1, z, BUSH);
+      return;
+    }
+    for (let lx = 0; lx < 2; lx++) for (let lz = 0; lz < 2; lz++) {
+      const ox = a + 1 + lx * 6, oz = c + 1 + lz * 6;
+      if (rnd() < 0.22) {
+        w.tree(ox + 2, G, oz + 2, rnd);
+        continue;
+      }
+      const h = 4 + Math.floor(rnd() * 10);
+      const mat = pick(rnd, [BRICK, WHITE, TILES, BLUE, BRICK, PINK, PLANKS]);
+      building(w, ox, oz, ox + 4, oz + 4, G, h, mat, rnd, lz === 0 ? "z0" : "z1");
+    }
+  }));
+}
+function genVillage(w, rnd, noise) {
+  const { sx, sz } = w;
+  for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
+    const h = 5 + Math.round(noise(x / 20, z / 20) * 3);
+    for (let y = 0; y <= h; y++) w.set(x, y, z, y === h ? GRASS : y > h - 3 ? DIRT : STONE);
+  }
+  const reserved = new Uint8Array(sx * sz);
+  const reserve = (x0, z0, x1, z1) => {
+    for (let x = Math.max(0, x0); x <= Math.min(sx - 1, x1); x++)
+      for (let z = Math.max(0, z0); z <= Math.min(sz - 1, z1); z++) reserved[x * sz + z] = 1;
+  };
+  const flatten = (x0, z0, x1, z1, base) => {
+    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
+      for (let y = 1; y < w.sy; y++) w.set(x, y, z, y < base ? DIRT : y === base ? GRASS : 0);
+    }
+  };
+  for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
+    if (x === 23 || x === 24 || z === 23 || z === 24) {
+      const y = w.topY(x, z);
+      w.set(x, y, z, DIRT);
+    }
+  }
+  reserve(22, 0, 25, sz - 1);
+  reserve(0, 22, sx - 1, 25);
+  for (const [fx, fz, fw, fd] of [[28, 6, 12, 9], [6, 28, 10, 12]]) {
+    const base = w.topY(fx + (fw >> 1), fz + (fd >> 1));
+    flatten(fx - 1, fz - 1, fx + fw, fz + fd, base);
+    for (let x = fx; x < fx + fw; x++) for (let z = fz; z < fz + fd; z++) {
+      w.set(x, base, z, FARM);
+      if ((z - fz) % 2 === 0) w.set(x, base + 1, z, CROP);
+    }
+    for (let x = fx - 1; x <= fx + fw; x++) for (let z = fz - 1; z <= fz + fd; z++) {
+      const ring = x === fx - 1 || x === fx + fw || z === fz - 1 || z === fz + fd;
+      const gate = z === fz - 1 && Math.abs(x - (fx + (fw >> 1))) <= 0;
+      if (ring && !gate) w.set(x, base + 1, z, LOG);
+    }
+    reserve(fx - 2, fz - 2, fx + fw + 1, fz + fd + 1);
+  }
+  for (const [hx, hz] of [[41, 17], [8, 41]]) {
+    const b = w.topY(hx, hz);
+    for (const [dx, dz, dy] of [[0, 0, 1], [1, 0, 1], [0, 1, 1], [0, 0, 2]]) w.set(hx + dx, b + dy, hz + dz, HAY);
+    reserve(hx - 1, hz - 1, hx + 2, hz + 2);
+  }
+  for (const [hx, hz, door] of [[6, 7, "x1"], [14, 14, "z1"], [29, 29, "z0"], [37, 37, "x0"]]) {
+    const base = w.topY(hx + 2, hz + 2);
+    flatten(hx - 1, hz - 1, hx + 5, hz + 5, base);
+    building(w, hx, hz, hx + 4, hz + 4, base, 3, PLANKS, rnd, door);
+    for (const [cx, cz] of [[hx, hz], [hx + 4, hz], [hx, hz + 4], [hx + 4, hz + 4]])
+      for (let y = base + 1; y <= base + 3; y++) w.set(cx, y, cz, LOG);
+    const roof = pick(rnd, [RED, BLUE, PURPLE, RED]);
+    for (let k = 0; k <= 3; k++) {
+      const y = base + 4 + k, r2 = 3 - k;
+      for (let x = hx + 2 - r2; x <= hx + 2 + r2; x++) for (let z = hz + 2 - r2; z <= hz + 2 + r2; z++) w.set(x, y, z, roof);
+    }
+    reserve(hx - 2, hz - 2, hx + 6, hz + 6);
+  }
+  for (let i = 0; i < 40; i++) {
+    const x = 3 + Math.floor(rnd() * (sx - 6)), z = 3 + Math.floor(rnd() * (sz - 6));
+    let ok = true;
+    for (let dx = -2; dx <= 2 && ok; dx++) for (let dz = -2; dz <= 2; dz++) if (reserved[(x + dx) * sz + z + dz]) {
+      ok = false;
+      break;
+    }
+    const y = w.topY(x, z);
+    if (!ok || w.get(x, y, z) !== GRASS) continue;
+    w.tree(x, y, z, rnd);
+    reserve(x - 2, z - 2, x + 2, z + 2);
+  }
+}
+
+// ===== world.js =====
 var TILE = 32;
 var TILE_NAMES = [
   "grass_top",
@@ -367,7 +573,10 @@ var TILE_NAMES = [
   "blue",
   "yellow",
   "pink",
-  "purple"
+  "purple",
+  "farmland",
+  "crop",
+  "hay"
 ];
 var T = Object.fromEntries(TILE_NAMES.map((n, i) => [n, i]));
 var BLOCKS = [
@@ -387,7 +596,10 @@ var BLOCKS = [
   { name: "파랑 블록", tiles: ["blue"] },
   { name: "노랑 블록", tiles: ["yellow"] },
   { name: "분홍 블록", tiles: ["pink"] },
-  { name: "보라 블록", tiles: ["purple"] }
+  { name: "보라 블록", tiles: ["purple"] },
+  { name: "밭", tiles: ["farmland", "dirt", "dirt"] },
+  { name: "작물", tiles: ["crop"], clear: true, pass: true },
+  { name: "건초", tiles: ["hay"] }
 ];
 var faceTile = (id, f) => {
   const t = BLOCKS[id].tiles;
@@ -553,6 +765,28 @@ function drawAtlas() {
       case "purple":
         candy("#9d7fd6", "#b59ae3");
         break;
+      case "farmland":
+        fill("#8a5a3a");
+        for (let y = 1; y < 32; y += 6) rr(1, y, 30, 3, 1.5, "#6a4129");
+        bevel(0.6);
+        break;
+      case "crop":
+        for (const x of [4, 12, 20, 27]) {
+          rr(x, 10, 2.5, 22, 1, "#5fae43");
+          circle(x + 3, 20, 2.2, "#86cf5e");
+          circle(x - 1, 15, 2, "#86cf5e");
+        }
+        for (const x of [5, 13, 21, 28]) {
+          circle(x, 7, 3, "#f2c94c");
+          circle(x, 4, 2.2, "#f7d974");
+        }
+        break;
+      case "hay":
+        fill("#e9c25a");
+        for (let y = 2; y < 32; y += 4) rr(0, y, 32, 1.5, 0.5, "#d1a63e");
+        rr(0, 13, 32, 5, 1, "#b07c2c");
+        bevel(0.6);
+        break;
     }
     g.restore();
   });
@@ -618,7 +852,8 @@ var World = class {
   isSolid(x, y, z) {
     if (y < 0 || x < 0 || z < 0 || x >= this.sx || z >= this.sz) return true;
     if (y >= this.sy) return false;
-    return this.data[this.idx(x, y, z)] !== 0;
+    const id = this.data[this.idx(x, y, z)];
+    return id !== 0 && !BLOCKS[id].pass;
   }
   opaque(x, y, z) {
     const id = this.get(x, y, z);
@@ -638,7 +873,9 @@ var World = class {
       }
       return;
     }
-    const noise = makeNoise(seed);
+    const noise = makeNoise(seed), rnd = mulberry32(seed + 99);
+    if (type === "city") return genCity(this, rnd);
+    if (type === "village") return genVillage(this, rnd, noise);
     for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
       const n = noise(x / 18, z / 18) * 0.75 + noise(x / 6 + 50, z / 6) * 0.25;
       const h = Math.max(3, Math.min(this.sy - 10, Math.floor(5 + n * 10)));
@@ -650,19 +887,22 @@ var World = class {
         this.set(x, y, z, id);
       }
     }
-    const rnd = mulberry32(seed + 99);
     const trees = Math.floor(sx * sz / 110);
     for (let i = 0; i < trees; i++) {
       const x = 3 + Math.floor(rnd() * (sx - 6)), z = 3 + Math.floor(rnd() * (sz - 6));
       const y = this.topY(x, z);
       if (this.get(x, y, z) !== 1) continue;
-      const th = 4 + Math.floor(rnd() * 2), cy = y + th + 1;
-      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) for (let dz = -2; dz <= 2; dz++) {
-        if (dx * dx + dy * dy * 1.6 + dz * dz > 5.2 + rnd()) continue;
-        if (!this.get(x + dx, cy + dy, z + dz)) this.set(x + dx, cy + dy, z + dz, 10);
-      }
-      for (let k = 1; k <= th; k++) this.set(x, y + k, z, 5);
+      this.tree(x, y, z, rnd);
     }
+  }
+  // 둥근 덤불 나무 (y = 나무가 설 땅의 높이)
+  tree(x, y, z, rnd) {
+    const th = 4 + Math.floor(rnd() * 2), cy = y + th + 1;
+    for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) for (let dz = -2; dz <= 2; dz++) {
+      if (dx * dx + dy * dy * 1.6 + dz * dz > 5.2 + rnd()) continue;
+      if (!this.get(x + dx, cy + dy, z + dz)) this.set(x + dx, cy + dy, z + dz, 10);
+    }
+    for (let k = 1; k <= th; k++) this.set(x, y + k, z, 5);
   }
   buildChunk(cx, cz) {
     const pos = [], col = [], uv = [], index = [];
@@ -913,7 +1153,7 @@ function listWorlds() {
 function saveWorld(meta2, body, thumb) {
   if (!safeSet(worldKey(meta2.id), JSON.stringify(body))) return false;
   const list = listWorlds().filter((w) => w.id !== meta2.id);
-  list.unshift({ id: meta2.id, name: meta2.name, type: meta2.type || "", updated: Date.now(), thumb: thumb || "" });
+  list.unshift({ id: meta2.id, name: meta2.name, type: meta2.type || "", mode: meta2.mode || "", updated: Date.now(), thumb: thumb || "" });
   return safeSet(LIST_KEY, JSON.stringify(list.map(({ where, ...w }) => w)));
 }
 function loadWorld(id) {
@@ -1040,7 +1280,7 @@ async function listCloud() {
 }
 function saveCloud(meta2, body, thumb) {
   return fb.update(r(`users/${user.uid}`), {
-    [`meta/${meta2.id}`]: { id: meta2.id, name: meta2.name, type: meta2.type || "", updated: Date.now(), thumb: thumb || "" },
+    [`meta/${meta2.id}`]: { id: meta2.id, name: meta2.name, type: meta2.type || "", mode: meta2.mode || "", updated: Date.now(), thumb: thumb || "" },
     [`data/${meta2.id}`]: body
   });
 }
@@ -1227,17 +1467,185 @@ var Others = class {
   }
 };
 
+// ===== mobs.js =====
+import * as THREE3 from "three";
+var MW = 0.4;
+var MH = 0.8;
+var SHADE2 = [0.8, 0.8, 1, 0.55, 0.68, 0.68];
+function faceTexture() {
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 32;
+  const g = cv.getContext("2d");
+  g.fillStyle = "#4b3a6b";
+  g.fillRect(0, 0, 32, 32);
+  g.fillStyle = "#ffe66b";
+  g.beginPath();
+  g.arc(10, 14, 3.4, 0, 7);
+  g.arc(22, 14, 3.4, 0, 7);
+  g.fill();
+  g.fillStyle = "#2a1f3d";
+  g.fillRect(8, 9, 6, 2);
+  g.fillRect(18, 9, 6, 2);
+  g.fillStyle = "#2a1f3d";
+  g.beginPath();
+  g.roundRect(11, 21, 10, 3, 1.5);
+  g.fill();
+  const t = new THREE3.CanvasTexture(cv);
+  t.colorSpace = THREE3.SRGBColorSpace;
+  return t;
+}
+var FACE = faceTexture();
+var GEO = new THREE3.BoxGeometry(0.8, 0.8, 0.8);
+function solidAt(world2, p) {
+  for (let x = Math.floor(p.x - MW); x <= Math.floor(p.x + MW); x++)
+    for (let y = Math.floor(p.y); y <= Math.floor(p.y + MH); y++)
+      for (let z = Math.floor(p.z - MW); z <= Math.floor(p.z + MW); z++)
+        if (world2.isSolid(x, y, z)) return true;
+  return false;
+}
+function moveAxis(world2, m, axis, d) {
+  if (!d) return false;
+  const steps = Math.ceil(Math.abs(d) / 0.4), sd = d / steps, p = m.pos;
+  for (let i = 0; i < steps; i++) {
+    p[axis] += sd;
+    if (!solidAt(world2, p)) continue;
+    if (axis === "y") {
+      if (sd < 0) {
+        p.y = Math.floor(p.y) + 1;
+        m.onGround = true;
+      } else p.y = Math.floor(p.y + MH) - MH - 1e-3;
+      m.vel.y = 0;
+    } else p[axis] = sd > 0 ? Math.floor(p[axis] + MW) - MW - 1e-3 : Math.floor(p[axis] - MW) + 1 + MW + 1e-3;
+    return true;
+  }
+  return false;
+}
+var Mobs = class {
+  constructor(scene2) {
+    this.scene = scene2;
+    this.list = [];
+  }
+  get count() {
+    return this.list.length;
+  }
+  spawn(x, y, z) {
+    const mats = SHADE2.map((k) => new THREE3.MeshBasicMaterial({ color: new THREE3.Color("#5b4885").multiplyScalar(k) }));
+    mats[5] = new THREE3.MeshBasicMaterial({ map: FACE });
+    const mesh = new THREE3.Mesh(GEO, mats);
+    this.scene.add(mesh);
+    this.list.push({
+      mesh,
+      mats,
+      pos: new THREE3.Vector3(x, y, z),
+      vel: new THREE3.Vector3(),
+      kb: new THREE3.Vector2(),
+      onGround: false,
+      hp: 3,
+      flash: 0,
+      hop: Math.random(),
+      cool: 0,
+      t: Math.random() * 10
+    });
+  }
+  remove(m) {
+    this.scene.remove(m.mesh);
+    m.mats.forEach((x) => x.dispose());
+    this.list.splice(this.list.indexOf(m), 1);
+  }
+  clear() {
+    [...this.list].forEach((m) => this.remove(m));
+  }
+  // 화면 가운데 조준선으로 맞은 몬스터 (가장 가까운 것)
+  hit(origin, dir, maxD) {
+    let best = null, bestT = maxD;
+    for (const m of this.list) {
+      const min = [m.pos.x - MW, m.pos.y, m.pos.z - MW], max = [m.pos.x + MW, m.pos.y + MH, m.pos.z + MW];
+      let t0 = 0, t1 = bestT;
+      for (let a = 0; a < 3; a++) {
+        const o = origin.getComponent(a), d = dir.getComponent(a);
+        if (Math.abs(d) < 1e-9) {
+          if (o < min[a] || o > max[a]) {
+            t0 = Infinity;
+            break;
+          }
+          continue;
+        }
+        let ta = (min[a] - o) / d, tb = (max[a] - o) / d;
+        if (ta > tb) [ta, tb] = [tb, ta];
+        t0 = Math.max(t0, ta);
+        t1 = Math.min(t1, tb);
+      }
+      if (t0 <= t1 && t0 < bestT) {
+        best = m;
+        bestT = t0;
+      }
+    }
+    return best ? { mob: best, t: bestT } : null;
+  }
+  damage(m, dirX, dirZ) {
+    m.hp -= 1;
+    m.flash = 0.25;
+    m.kb.set(dirX * 7, dirZ * 7);
+    m.vel.y = 5;
+    if (m.hp <= 0) {
+      this.remove(m);
+      return true;
+    }
+    return false;
+  }
+  update(dt, world2, player, onTouch) {
+    for (const m of [...this.list]) {
+      m.t += dt;
+      m.cool -= dt;
+      m.flash -= dt;
+      const dx = player.x - m.pos.x, dz = player.z - m.pos.z, dist = Math.hypot(dx, dz);
+      if (dist > 40 || m.pos.y < -5) {
+        this.remove(m);
+        continue;
+      }
+      const sp = dist < 22 ? 2.3 : 0.8;
+      let vx = dist > 0.6 ? dx / dist * sp : 0, vz = dist > 0.6 ? dz / dist * sp : 0;
+      vx += m.kb.x;
+      vz += m.kb.y;
+      m.kb.multiplyScalar(Math.max(0, 1 - dt * 6));
+      m.vel.y = Math.max(m.vel.y - 28 * dt, -30);
+      m.hop -= dt;
+      const wasGround = m.onGround;
+      m.onGround = false;
+      const bx = moveAxis(world2, m, "x", vx * dt), bz = moveAxis(world2, m, "z", vz * dt);
+      moveAxis(world2, m, "y", m.vel.y * dt);
+      if (wasGround && (bx || bz || m.hop <= 0)) {
+        m.vel.y = 7.2;
+        m.hop = 0.7 + Math.random() * 0.6;
+      }
+      const dy = player.y - m.pos.y;
+      if (dist < 0.75 && dy > -1.7 && dy < 0.8 && m.cool <= 0) {
+        m.cool = 1;
+        onTouch(m.pos.x, m.pos.z);
+      }
+      m.mesh.position.set(m.pos.x, m.pos.y + MH / 2, m.pos.z);
+      m.mesh.rotation.y = Math.atan2(-dx, -dz);
+      const s = m.onGround ? 1 : 1 + Math.min(0.15, Math.abs(m.vel.y) * 0.02);
+      m.mesh.scale.set(2 - s, s, 2 - s);
+      const red = m.flash > 0;
+      m.mats.forEach((mt, i) => {
+        if (i !== 5) mt.color.set(red ? "#e8615e" : "#5b4885").multiplyScalar(SHADE2[i]);
+      });
+    }
+  }
+};
+
 // ===== main.js =====
 var $ = (id) => document.getElementById(id);
 if (isTouch) document.body.classList.add("touch");
 var canvas = $("game");
-var renderer = new THREE3.WebGLRenderer({ canvas, antialias: !isTouch });
+var renderer = new THREE4.WebGLRenderer({ canvas, antialias: !isTouch });
 renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.5 : 2));
-var scene = new THREE3.Scene();
+var scene = new THREE4.Scene();
 var SKY = 10474751;
-scene.background = new THREE3.Color(SKY);
-scene.fog = new THREE3.Fog(SKY, 28, 75);
-var camera = new THREE3.PerspectiveCamera(75, 1, 0.05, 200);
+scene.background = new THREE4.Color(SKY);
+scene.fog = new THREE4.Fog(SKY, 28, 75);
+var camera = new THREE4.PerspectiveCamera(75, 1, 0.05, 200);
 camera.rotation.order = "YXZ";
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
@@ -1246,12 +1654,13 @@ function resize() {
 }
 addEventListener("resize", resize);
 resize();
-var chunkGroup = new THREE3.Group();
+var chunkGroup = new THREE4.Group();
 scene.add(chunkGroup);
 var others = new Others(scene);
-var highlight = new THREE3.LineSegments(
-  new THREE3.EdgesGeometry(new THREE3.BoxGeometry(1.004, 1.004, 1.004)),
-  new THREE3.LineBasicMaterial({ color: 1118481, transparent: true, opacity: 0.6 })
+var mobs = new Mobs(scene);
+var highlight = new THREE4.LineSegments(
+  new THREE4.EdgesGeometry(new THREE4.BoxGeometry(1.004, 1.004, 1.004)),
+  new THREE4.LineBasicMaterial({ color: 1118481, transparent: true, opacity: 0.6 })
 );
 highlight.visible = false;
 scene.add(highlight);
@@ -1281,7 +1690,7 @@ function rebuildDirty(limit = 4) {
       chunkGroup.remove(old);
       old.geometry.dispose();
     }
-    const mesh = new THREE3.Mesh(world.buildChunk(cx, cz), blockMaterial);
+    const mesh = new THREE4.Mesh(world.buildChunk(cx, cz), blockMaterial);
     chunkMeshes.set(key, mesh);
     chunkGroup.add(mesh);
   }
@@ -1301,7 +1710,7 @@ function setBlock(x, y, z, id, fromNet = false) {
 var W = 0.3;
 var H = 1.8;
 var EYE = 1.62;
-var P = { pos: new THREE3.Vector3(), vel: new THREE3.Vector3(), yaw: 0, pitch: 0, onGround: false, fly: false };
+var P = { pos: new THREE4.Vector3(), vel: new THREE4.Vector3(), yaw: 0, pitch: 0, onGround: false, fly: false };
 function spawn() {
   const x = Math.floor(world.sx / 2), z = Math.floor(world.sz / 2);
   P.pos.set(x + 0.5, world.topY(x, z) + 1, z + 0.5);
@@ -1347,7 +1756,8 @@ function updatePlayer(dt) {
     mz /= len;
   }
   const sin = Math.sin(P.yaw), cos = Math.cos(P.yaw);
-  const vx = (-sin * mz + cos * mx) * sp, vz = (-cos * mz - sin * mx) * sp;
+  const vx = (-sin * mz + cos * mx) * sp + SV.kb.x, vz = (-cos * mz - sin * mx) * sp + SV.kb.y;
+  SV.kb.multiplyScalar(Math.max(0, 1 - dt * 6));
   if (P.fly) P.vel.y = ((s.jump ? 1 : 0) - (s.down ? 1 : 0)) * sp;
   else {
     P.vel.y = Math.max(P.vel.y - 28 * dt, -40);
@@ -1357,10 +1767,141 @@ function updatePlayer(dt) {
   move("x", vx * dt);
   move("z", vz * dt);
   move("y", P.vel.y * dt);
-  if (P.pos.y < -10) spawn();
+  if (SV.on) {
+    if (P.onGround) {
+      if (SV.fallTop !== null && SV.fallTop - P.pos.y > 3.5) hurt(Math.floor(SV.fallTop - P.pos.y - 3) * 2);
+      SV.fallTop = null;
+    } else SV.fallTop = Math.max(SV.fallTop ?? P.pos.y, P.pos.y);
+  }
+  if (P.pos.y < -10) {
+    spawn();
+    SV.fallTop = null;
+    if (SV.on) hurt(20);
+  }
+}
+var HARD = { 1: 0.6, 2: 0.5, 3: 1.6, 4: 1.6, 5: 1.1, 6: 1, 7: 1.6, 8: 0.4, 9: 0.5, 10: 0.25, 11: 0.8, 12: 0.8, 13: 0.8, 14: 0.8, 15: 0.8, 16: 0.8, 17: 0.5, 18: 0.1, 19: 0.5 };
+var DAY_LEN = 300;
+var SV = {
+  on: false,
+  hp: 20,
+  inv: {},
+  time: 0.1,
+  night: null,
+  hurtAt: 0,
+  regenAt: 0,
+  fallTop: null,
+  mineKey: "",
+  mineT: 0,
+  mineAt: 0,
+  attackAt: 0,
+  spawnAt: 0,
+  kb: new THREE4.Vector2()
+};
+var invGet = (id) => SV.inv["b" + id] || 0;
+var invAdd = (id, n) => {
+  SV.inv["b" + id] = Math.max(0, invGet(id) + n);
+  renderCounts();
+};
+function daylight(t) {
+  const a = 0.55, b = 0.63, c = 0.93;
+  if (t < a) return 1;
+  if (t < b) return 1 - (t - a) / (b - a) * 0.62;
+  if (t < c) return 0.38;
+  return 0.38 + (t - c) / (1 - c) * 0.62;
+}
+var DAY_SKY = new THREE4.Color(SKY);
+var NIGHT_SKY = new THREE4.Color(1844550);
+function applyLight(k) {
+  blockMaterial.color.setScalar(k * k);
+  scene.background.copy(NIGHT_SKY).lerp(DAY_SKY, (k - 0.38) / 0.62);
+  scene.fog.color.copy(scene.background);
+}
+function renderHearts() {
+  let h = "";
+  for (let i = 0; i < 10; i++) {
+    const v = SV.hp - i * 2;
+    h += `<i class="${v >= 2 ? "f" : v === 1 ? "h" : "e"}">♥</i>`;
+  }
+  $("hearts").innerHTML = h;
+}
+function hurt(dmg, fx, fz) {
+  if (!SV.on || mode !== "play") return;
+  SV.hp = Math.max(0, SV.hp - dmg);
+  SV.hurtAt = performance.now();
+  renderHearts();
+  const fxEl = $("hurtFx");
+  fxEl.classList.remove("on");
+  void fxEl.offsetWidth;
+  fxEl.classList.add("on");
+  if (fx !== void 0) {
+    const dx = P.pos.x - fx, dz = P.pos.z - fz, d = Math.hypot(dx, dz) || 1;
+    SV.kb.set(dx / d * 6, dz / d * 6);
+    P.vel.y = Math.max(P.vel.y, 4.5);
+  }
+  if (SV.hp <= 0) {
+    mode = "dead";
+    if (document.pointerLockElement) document.exitPointerLock();
+    show("dead");
+  }
+}
+function setMineBar(p) {
+  $("mineBar").hidden = p <= 0;
+  $("mineBar").firstElementChild.style.width = Math.min(1, p) * 100 + "%";
+}
+function trySpawnMob() {
+  for (let i = 0; i < 6; i++) {
+    const a = Math.random() * Math.PI * 2, r2 = 12 + Math.random() * 12;
+    const x = Math.floor(P.pos.x + Math.cos(a) * r2), z = Math.floor(P.pos.z + Math.sin(a) * r2);
+    if (x < 1 || z < 1 || x >= world.sx - 1 || z >= world.sz - 1) continue;
+    const y = world.topY(x, z) + 1;
+    if (y >= world.sy - 1) continue;
+    mobs.spawn(x + 0.5, y, z + 0.5);
+    return;
+  }
+}
+function updateSurvival(dt, now) {
+  SV.time = (SV.time + dt / DAY_LEN) % 1;
+  const k = daylight(SV.time);
+  applyLight(k);
+  const night = k < 0.6;
+  if (night !== SV.night) {
+    if (SV.night !== null) {
+      if (night) toast("밤이 됐어요! 그림자 네모를 조심하세요 🌙");
+      else if (mobs.count) toast("해가 떴어요! 그림자 네모가 사라졌어요 ☀");
+    }
+    SV.night = night;
+    $("clock").textContent = night ? "🌙 밤" : "☀ 낮";
+    if (!night) mobs.clear();
+  }
+  if (night && now - SV.spawnAt > 8e3 && mobs.count < 3) {
+    SV.spawnAt = now;
+    trySpawnMob();
+  }
+  mobs.update(dt, world, P.pos, (fx, fz) => hurt(2, fx, fz));
+  if (SV.hp < 20 && now - SV.hurtAt > 6e3 && now - SV.regenAt > 2500) {
+    SV.regenAt = now;
+    SV.hp++;
+    renderHearts();
+  }
+  if (SV.mineKey && now - SV.mineAt > 400) {
+    SV.mineKey = "";
+    setMineBar(0);
+  }
+}
+function attackMob() {
+  if (!mobs.count) return false;
+  const dir = new THREE4.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  const h = mobs.hit(camera.position, dir, 3.5);
+  if (!h) return false;
+  if (target && camera.position.distanceTo(new THREE4.Vector3(target.x + 0.5, target.y + 0.5, target.z + 0.5)) < h.t - 0.4) return false;
+  const now = performance.now();
+  if (now - SV.attackAt < 350) return true;
+  SV.attackAt = now;
+  if (mobs.damage(h.mob, dir.x, dir.z)) toast("그림자 네모를 물리쳤어요! ✨");
+  return true;
 }
 function raycast(maxD = 6) {
-  const o = camera.position, d = new THREE3.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  const o = camera.position, d = new THREE4.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
   let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
   const step = [Math.sign(d.x), Math.sign(d.y), Math.sign(d.z)];
   const tDelta = [Math.abs(1 / d.x), Math.abs(1 / d.y), Math.abs(1 / d.z)];
@@ -1382,8 +1923,28 @@ function raycast(maxD = 6) {
 }
 var target = null;
 function breakBlock() {
+  if (SV.on && attackMob()) return;
   if (!target || target.y === 0) return;
-  setBlock(target.x, target.y, target.z, 0);
+  if (!SV.on) {
+    setBlock(target.x, target.y, target.z, 0);
+    return;
+  }
+  const key = `${target.x},${target.y},${target.z}`, now = performance.now();
+  if (key !== SV.mineKey || now - SV.mineAt > 400) {
+    SV.mineKey = key;
+    SV.mineT = 0;
+  }
+  SV.mineAt = now;
+  SV.mineT += 0.23;
+  const id = world.get(target.x, target.y, target.z), need = HARD[id] ?? 1;
+  setMineBar(SV.mineT / need);
+  if (SV.mineT + 1e-6 >= need) {
+    setBlock(target.x, target.y, target.z, 0);
+    invAdd(id, 1);
+    SV.mineKey = "";
+    setMineBar(0);
+    showName(`+1 ${BLOCKS[id].name}`);
+  }
 }
 function placeBlock() {
   if (!target) return;
@@ -1392,7 +1953,13 @@ function placeBlock() {
   const p = P.pos;
   const hit = x < p.x + W && x + 1 > p.x - W && y < p.y + H && y + 1 > p.y && z < p.z + W && z + 1 > p.z - W;
   if (hit) return;
-  setBlock(x, y, z, HOTBAR[slot]);
+  const id = HOTBAR[slot];
+  if (SV.on && invGet(id) <= 0) {
+    showName(`${BLOCKS[id].name} 없음 · 블록을 캐서 모아 보세요`);
+    return;
+  }
+  setBlock(x, y, z, id);
+  if (SV.on) invAdd(id, -1);
 }
 var HOTBAR = BLOCKS.map((b, i) => i).filter((i) => i > 0);
 var slot = 0;
@@ -1401,7 +1968,7 @@ HOTBAR.forEach((id, i) => {
   const b = document.createElement("button");
   b.className = "slot";
   b.title = BLOCKS[id].name;
-  b.innerHTML = `<img alt="" src="${blockIcon(id)}"><span>${i < 10 ? (i + 1) % 10 : ""}</span>`;
+  b.innerHTML = `<img alt="" src="${blockIcon(id)}"><span>${i < 10 ? (i + 1) % 10 : ""}</span><em></em>`;
   b.addEventListener("click", () => selectSlot(i));
   hotbarEl.appendChild(b);
 });
@@ -1410,18 +1977,28 @@ function selectSlot(i) {
   slot = (i + HOTBAR.length) % HOTBAR.length;
   [...hotbarEl.children].forEach((el, k) => el.classList.toggle("sel", k === slot));
   hotbarEl.children[slot].scrollIntoView({ block: "nearest", inline: "nearest" });
+  showName(BLOCKS[HOTBAR[slot]].name + (SV.on ? ` · ${invGet(HOTBAR[slot])}개` : ""));
+}
+function showName(text) {
   const nm = $("blockName");
-  nm.textContent = BLOCKS[HOTBAR[slot]].name;
+  nm.textContent = text;
   nm.classList.add("show");
   clearTimeout(nameTimer);
-  nameTimer = setTimeout(() => nm.classList.remove("show"), 1200);
+  nameTimer = setTimeout(() => nm.classList.remove("show"), 1400);
 }
-selectSlot(0);
+function renderCounts() {
+  [...hotbarEl.children].forEach((el, k) => {
+    const n = invGet(HOTBAR[k]);
+    el.querySelector("em").textContent = SV.on ? n : "";
+    el.classList.toggle("none", SV.on && n <= 0);
+  });
+}
 var mode = "title";
 var changed = false;
 var lastSave = 0;
 var saving = false;
 var room2 = null;
+selectSlot(0);
 var input = createInput(canvas, {
   active: () => mode === "play",
   onBreak: breakBlock,
@@ -1429,6 +2006,10 @@ var input = createInput(canvas, {
   onSlot: (d) => selectSlot(slot + d),
   onSelect: (i) => selectSlot(i),
   onFly: () => {
+    if (SV.on) {
+      toast("서바이벌에서는 날 수 없어요");
+      return;
+    }
     P.fly = !P.fly;
     P.vel.y = 0;
     $("tFly").classList.toggle("active", P.fly);
@@ -1440,7 +2021,7 @@ var input = createInput(canvas, {
 });
 function show(id) {
   for (const el of document.querySelectorAll(".overlay")) el.hidden = el.id !== id;
-  $("hud").hidden = !(mode === "play" || mode === "pause");
+  $("hud").hidden = !(mode === "play" || mode === "pause" || mode === "dead");
 }
 function play() {
   mode = "play";
@@ -1482,7 +2063,18 @@ function thumbnail() {
   c.getContext("2d").drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, 240, 135);
   return c.toDataURL("image/jpeg", 0.7);
 }
-var pose = () => ({ x: P.pos.x, y: P.pos.y, z: P.pos.z, yaw: P.yaw, pitch: P.pitch, fly: P.fly });
+var pose = () => ({
+  x: P.pos.x,
+  y: P.pos.y,
+  z: P.pos.z,
+  yaw: P.yaw,
+  pitch: P.pitch,
+  fly: P.fly,
+  mode: SV.on ? "survival" : "creative",
+  hp: SV.hp,
+  inv: SV.inv,
+  time: SV.time
+});
 var canAutoSave = () => !room2 || room2.host;
 async function doSave(manual = true) {
   if (!world || !meta || saving) return;
@@ -1517,6 +2109,23 @@ function startWorld(m, saved, { fresh = !saved } = {}) {
     P.pitch = s.pitch;
     P.fly = !!s.fly;
   } else spawn();
+  const pl = saved?.player;
+  SV.on = (pl?.mode || m.mode) === "survival";
+  meta.mode = SV.on ? "survival" : "creative";
+  SV.hp = pl?.hp > 0 ? pl.hp : 20;
+  SV.inv = { ...pl?.inv || {} };
+  SV.time = pl?.time ?? 0.1;
+  SV.night = null;
+  SV.fallTop = null;
+  SV.kb.set(0, 0);
+  mobs.clear();
+  if (SV.on) P.fly = false;
+  document.body.classList.toggle("surv", SV.on);
+  $("hearts").hidden = !SV.on;
+  $("clock").hidden = !SV.on;
+  renderHearts();
+  renderCounts();
+  applyLight(SV.on ? daylight(SV.time) : 1);
   $("tFly").classList.toggle("active", P.fly);
   $("worldName").textContent = m.name;
   changed = false;
@@ -1569,7 +2178,7 @@ $("btnOpenRoom").onclick = () => busy(async () => {
   $("btnOpenRoom").disabled = true;
   try {
     await ensureUser();
-    const code = await createRoom(meta.name, serialize(world, null));
+    const code = await createRoom(meta.name, { ...serialize(world, null), mode: meta.mode });
     joinNet(code, true, meta.name);
     renderRoomBox();
     toast("방을 열었어요! 코드: " + code);
@@ -1606,7 +2215,7 @@ $("joinForm").onsubmit = (e) => {
         return;
       }
       history.replaceState(null, "", location.pathname);
-      startWorld({ id: newId(), name: data.name + " (같이 짓기)", where: "cloud" }, deserialize(data), { fresh: false });
+      startWorld({ id: newId(), name: data.name + " (같이 짓기)", where: "cloud", mode: data.mode || "creative" }, deserialize(data), { fresh: false });
       spawn();
       joinNet(code, false, data.name);
       toast(`'${data.name}' 방에 들어왔어요!`);
@@ -1641,12 +2250,12 @@ async function renderSaves() {
     const card = document.createElement("div");
     card.className = "save";
     const date = new Date(w.updated).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-    card.innerHTML = `<img alt="" src="${w.thumb || ""}"><div class="info"><b></b><small>${w.where === "cloud" ? "☁ 클라우드" : "💻 이 기기"} · ${date}</small></div>
+    card.innerHTML = `<img alt="" src="${w.thumb || ""}"><div class="info"><b></b><small>${w.mode === "survival" ? "⚔ 서바이벌 · " : ""}${w.where === "cloud" ? "☁ 클라우드" : "💻 이 기기"} · ${date}</small></div>
       <button class="btn small" data-act="load">이어하기</button><button class="btn small ghost" data-act="del" aria-label="삭제">🗑</button>`;
     card.querySelector("b").textContent = w.name;
     card.querySelector("[data-act=load]").onclick = () => busy(async () => {
       const saved = w.where === "cloud" ? deserialize(await loadCloud(w.id)) : loadWorld(w.id);
-      if (saved) startWorld({ id: w.id, name: w.name, type: w.type, where: w.where }, saved);
+      if (saved) startWorld({ id: w.id, name: w.name, type: w.type, where: w.where, mode: w.mode }, saved);
       else toast("월드를 불러오지 못했어요.");
     });
     card.querySelector("[data-act=del]").onclick = () => busy(async () => {
@@ -1671,6 +2280,9 @@ function renderAccount() {
 function toTitle() {
   if (document.pointerLockElement) document.exitPointerLock();
   leaveNet();
+  mobs.clear();
+  applyLight(1);
+  document.body.classList.remove("surv");
   mode = "title";
   show("title");
   renderAccount();
@@ -1685,8 +2297,8 @@ $("btnCancelNew").onclick = () => show("title");
 $("newForm").onsubmit = (e) => {
   e.preventDefault();
   const name = $("worldNameInput").value.trim() || "이름 없는 월드";
-  const type = new FormData(e.target).get("type");
-  startWorld({ id: newId(), name, type, seed: Math.floor(Math.random() * 1e9), where: currentUser() ? "cloud" : "local" });
+  const fd = new FormData(e.target), type = fd.get("type");
+  startWorld({ id: newId(), name, type, mode: fd.get("mode"), seed: Math.floor(Math.random() * 1e9), where: currentUser() ? "cloud" : "local" });
 };
 $("btnJoin").onclick = () => openJoin("");
 function openJoin(code) {
@@ -1781,6 +2393,20 @@ $("btnTitle").onclick = async () => {
   if (changed && canAutoSave()) await doSave(false);
   toTitle();
 };
+$("btnRespawn").onclick = () => {
+  SV.hp = 20;
+  renderHearts();
+  spawn();
+  SV.fallTop = null;
+  mobs.clear();
+  play();
+};
+$("btnDeadTitle").onclick = async () => {
+  SV.hp = 20;
+  spawn();
+  if (canAutoSave()) await doSave(false);
+  toTitle();
+};
 addEventListener("visibilitychange", () => {
   if (document.hidden && mode !== "title" && changed && canAutoSave()) doSave(false);
 });
@@ -1797,6 +2423,7 @@ function frame(now) {
   } else {
     if (mode === "play") {
       updatePlayer(dt);
+      if (SV.on) updateSurvival(dt, now);
       if (changed && canAutoSave() && now - lastSave > 6e4) doSave(false);
     }
     sendPose2(now);
@@ -1829,7 +2456,9 @@ init().then((ok) => {
 });
 window.nemo = { get world() {
   return world;
-}, P, setBlock, startWorld, doSave, net: net_exports, others, get mode() {
+}, P, SV, mobs, hurt, breakBlock, placeBlock, get target() {
+  return target;
+}, setBlock, startWorld, doSave, net: net_exports, others, get mode() {
   return mode;
 }, get room() {
   return room2;
