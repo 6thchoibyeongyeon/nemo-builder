@@ -160,9 +160,7 @@ body.touch .slot { width: 44px; height: 44px; }
 .err { color: #c0392b; min-height: 1.2em; margin: 4px 0 0; font-size: .92rem; }
 .err:empty { display: none; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-.btn.google { background: #fff; }
-.btn.google b { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; margin-right: 6px; border-radius: 50%;
-  color: #fff; background: conic-gradient(#ea4335 0 25%, #fbbc05 0 50%, #34a853 0 75%, #4285f4 0); font-family: sans-serif; }
+.login-hint { margin: -4px 0 14px; color: var(--muted); font-size: .9rem; }
 .or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .85rem; margin: 16px 0 10px; }
 .or::before, .or::after { content: ''; flex: 1; height: 2px; background: var(--paper-2); }
 .codein { text-transform: uppercase; letter-spacing: .3em; font-size: 1.5rem !important; text-align: center; }
@@ -180,15 +178,24 @@ body.touch .slot { width: 44px; height: 44px; }
 .site { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin-top: 10px; }
 .site a { color: var(--grass-dark); font-size: 1rem; text-decoration: none; border-bottom: 2px solid currentColor; }
 .site a:hover { color: var(--grass); }
+.btn.google { background: #fff; margin-top: 0; }
+.btn.google b { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; margin-right: 6px; border-radius: 50%;
+  color: #fff; background: conic-gradient(#ea4335 0 25%, #fbbc05 0 50%, #34a853 0 75%, #4285f4 0); font-family: sans-serif; }
+.note { background: #fff4d6; border: 2px solid #f0c060; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px;
+  font-size: .9rem; line-height: 1.5; text-align: center; color: #5a4520; }
+.note .btn { margin: 6px 0; }
+.note small { display: block; color: var(--muted); }
 </style>
 <script>
 // ▼ Firebase 설정 (로그인 · 클라우드 저장 · 같이 짓기). 비워 두면 혼자 하기 + 이 기기 저장만 됩니다.
 window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
-  apiKey: "",
-  authDomain: "",
-  databaseURL: "",
-  projectId: "",
-  appId: ""
+  apiKey: "AIzaSyAn8NOXH05dtSPd0EAAaCl4Ao1TRxQ7AkU",
+  authDomain: "nemo-builder.firebaseapp.com",
+  databaseURL: "https://nemo-builder-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "nemo-builder",
+  storageBucket: "nemo-builder.firebasestorage.app",
+  messagingSenderId: "639499185474",
+  appId: "1:639499185474:web:921120df98c69b642b2cdb"
 };
 </script>
 <script type="importmap">
@@ -292,6 +299,12 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
 <section id="login" class="overlay" hidden>
   <form id="loginForm" class="card narrow">
     <h2>로그인 · 회원가입</h2>
+    <p class="login-hint">로그인하면 어느 기기에서든 내 월드를 이어서 할 수 있어요.</p>
+    <div id="inappNote" class="note" hidden>
+      카카오톡 같은 <b>앱 안 브라우저</b>에서는 Google 로그인이 막혀 있어요.
+      <button type="button" id="btnExternal" class="btn small">크롬·사파리로 열기</button>
+      <small>또는 아래 이메일 가입이나 게스트로 시작해도 돼요.</small>
+    </div>
     <button type="button" id="btnGoogle" class="btn wide google"><b>G</b> Google로 계속하기</button>
     <div class="or"><span>또는 이메일로</span></div>
     <label class="field">닉네임 <small>(회원가입할 때, 선택)</small><input id="nickInput" maxlength="12" autocomplete="nickname"></label>
@@ -302,7 +315,8 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
       <button class="btn primary" type="submit">로그인</button>
       <button class="btn" type="button" id="btnSignup">회원가입</button>
     </div>
-    <button type="button" id="btnGuest" class="btn ghost wide">가입 없이 게스트로 시작</button>
+    <div class="or"><span>또는</span></div>
+    <button type="button" id="btnGuest" class="btn wide">가입 없이 게스트로 시작</button>
     <button type="button" id="btnCancelLogin" class="btn ghost wide">돌아가기</button>
   </form>
 </section>
@@ -981,6 +995,7 @@ var ERR = {
   "auth/cancelled-popup-request": "로그인 창이 닫혔어요.",
   "auth/popup-blocked": "팝업이 차단됐어요. 브라우저에서 팝업을 허용해 주세요.",
   "auth/unauthorized-domain": "이 사이트 주소가 Firebase 승인된 도메인에 없어요.",
+  "auth/account-exists-with-different-credential": "이 이메일은 다른 방법(이메일·비밀번호)으로 이미 가입돼 있어요.",
   "auth/operation-not-allowed": "이 로그인 방식이 Firebase에서 꺼져 있어요.",
   "auth/admin-restricted-operation": "게스트 로그인이 Firebase에서 꺼져 있어요.",
   "auth/network-request-failed": "인터넷 연결을 확인해 주세요.",
@@ -1715,8 +1730,30 @@ $("loginForm").onsubmit = (e) => {
   authDo(() => loginEmail(email(), pw()));
 };
 $("btnSignup").onclick = () => authDo(() => signupEmail(email(), pw(), $("nickInput").value.trim()));
-$("btnGoogle").onclick = () => authDo(loginGoogle);
 $("btnGuest").onclick = () => authDo(loginGuest);
+var UA = navigator.userAgent;
+var inApp = /KAKAOTALK|Instagram|FBAN|FBAV|Line\/|NAVER\(inapp|DaumApps|everytimeApp|; wv\)/i.test(UA);
+$("inappNote").hidden = !inApp;
+$("btnGoogle").onclick = () => {
+  if (inApp) {
+    $("loginErr").textContent = "앱 안 브라우저에서는 Google 로그인이 안 돼요. 크롬·사파리로 열어 주세요.";
+    return;
+  }
+  authDo(loginGoogle);
+};
+$("btnExternal").onclick = async () => {
+  const url = location.href;
+  if (/KAKAOTALK/i.test(UA)) {
+    location.href = "kakaotalk://web/openExternal?url=" + encodeURIComponent(url);
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("주소를 복사했어요. 크롬·사파리에 붙여 넣어 주세요");
+  } catch {
+    prompt("이 주소를 크롬·사파리에 붙여 넣어 주세요", url);
+  }
+};
 var SITE_URL = "https://nemo-builder.pages.dev/";
 $("btnShare").onclick = async () => {
   if (navigator.share) {
