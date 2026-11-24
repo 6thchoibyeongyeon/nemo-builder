@@ -210,6 +210,28 @@ body.touch .slot { width: 44px; height: 44px; }
 .slot.none img { opacity: .3; }
 body.surv #tFly { visibility: hidden; }
 body.surv .pc-hint { display: none; }
+
+/* ---------- 터치 조작: 화면 크기(가로/세로)에 맞춰 자동 조절 ---------- */
+body.touch { --slot: clamp(34px, 11vmin, 46px); --joy: clamp(92px, 30vmin, 132px); --btn: clamp(40px, 12.5vmin, 58px);
+  --big: clamp(48px, 15.5vmin, 70px); --gap: clamp(6px, 2vmin, 12px); --hb: calc(var(--slot) + 30px); }
+body.touch .slot { width: var(--slot); height: var(--slot); padding: 3px; }
+body.touch #joy { width: var(--joy); height: var(--joy); left: max(14px, env(safe-area-inset-left));
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + var(--hb)); }
+body.touch #joyKnob { width: 42%; height: 42%; }
+body.touch .tbtns { gap: var(--gap); right: max(12px, env(safe-area-inset-right)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + var(--hb));
+  grid-template-columns: repeat(2, auto); grid-template-areas: "fly down" "brk plc" "jmp ."; }
+body.touch .tbtn { width: var(--btn); height: var(--btn); font-size: calc(var(--btn) * .42); }
+body.touch .tbtn.big { width: var(--big); height: var(--big); font-size: calc(var(--big) * .42); }
+#tFly { grid-area: fly; } #tDown { grid-area: down; } #tBreak { grid-area: brk; } #tPlace { grid-area: plc; } #tJump { grid-area: jmp; }
+body.touch #blockName { bottom: calc(max(10px, env(safe-area-inset-bottom)) + var(--hb) + 6px); }
+@media (orientation: landscape) {
+  body.touch { --joy: clamp(78px, 25vmin, 120px); --btn: clamp(36px, 10.5vmin, 52px); --big: clamp(42px, 12.5vmin, 60px);
+    --slot: clamp(30px, 9vmin, 42px); --gap: clamp(5px, 1.6vmin, 10px); }
+  body.touch .tbtns { grid-template-columns: repeat(3, auto); grid-template-areas: "fly brk plc" "down . jmp"; }
+  body.touch .topbar { top: max(6px, env(safe-area-inset-top)); }
+  body.touch .topbar .btn.small, body.touch .chip { font-size: .8rem; }
+  body.touch #hearts { top: calc(max(6px, env(safe-area-inset-top)) + 36px); font-size: 1rem; }
+}
 </style>
 <script>
 // ▼ Firebase 설정 (로그인 · 클라우드 저장 · 같이 짓기). 비워 두면 혼자 하기 + 이 기기 저장만 됩니다.
@@ -406,6 +428,7 @@ var LOG = 5;
 var PLANKS = 6;
 var BRICK = 7;
 var GLASS = 8;
+var SAND = 9;
 var BUSH = 10;
 var WHITE = 11;
 var RED = 12;
@@ -416,77 +439,221 @@ var PURPLE = 16;
 var FARM = 17;
 var CROP = 18;
 var HAY = 19;
+var ASPHALT = 20;
+var WATER = 21;
+var FLOWER = 22;
+var ROOF = 23;
+var PUMPKIN = 24;
 var pick = (rnd, arr) => arr[Math.floor(rnd() * arr.length)];
-function building(w, x0, z0, x1, z1, base, h, mat, rnd, doorSide = "z0") {
+var ri = (rnd, a, b) => a + Math.floor(rnd() * (b - a + 1));
+function box(w, x0, y0, z0, x1, y1, z1, id) {
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) w.set(x, y, z, id);
+}
+function flatten(w, x0, z0, x1, z1, base, top = GRASS) {
+  for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++)
+    for (let y = 1; y < w.sy; y++) w.set(x, y, z, y < base ? y < base - 3 ? STONE : DIRT : y === base ? top : 0);
+}
+function smallTree(w, x, y, z) {
+  box(w, x - 1, y + 3, z - 1, x + 1, y + 4, z + 1, BUSH);
+  w.set(x, y + 5, z, BUSH);
+  for (let k = 1; k <= 3; k++) w.set(x, y + k, z, LOG);
+}
+function lamp(w, x, y, z) {
+  for (let k = 1; k <= 4; k++) w.set(x, y + k, z, WHITE);
+  w.set(x, y + 5, z, YELLOW);
+}
+function car(w, x, y, z, alongX, color) {
+  const [dx, dz] = alongX ? [1, 0] : [0, 1];
+  w.set(x, y, z, color);
+  w.set(x + dx, y, z + dz, color);
+  w.set(x, y + 1, z, GLASS);
+}
+function building(w, rnd, b) {
+  const { x0, z0, x1, z1, base, floors, fh = 4, wall, trim = WHITE, style = "window", door = "z0", roofDeco = true } = b;
+  const top = base + floors * fh;
   for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
-    w.set(x, base, z, PLANKS);
-    const edge = x === x0 || x === x1 || z === z0 || z === z1;
-    const corner = (x === x0 || x === x1) && (z === z0 || z === z1);
-    for (let y = base + 1; y <= base + h; y++) {
+    const ex = x === x0 || x === x1, ez = z === z0 || z === z1, edge = ex || ez, corner = ex && ez;
+    const along = ex ? z : x;
+    w.set(x, base, z, TILES);
+    for (let y = base + 1; y < top; y++) {
+      const lv = (y - base) % fh;
       if (!edge) {
-        w.set(x, y, z, 0);
+        w.set(x, y, z, lv === 0 ? PLANKS : 0);
         continue;
       }
-      const lv = y - base - 1;
-      const win = !corner && lv % 3 === 1 && (x + z) % 2 === 0;
-      w.set(x, y, z, win ? GLASS : mat);
+      let id = wall;
+      if (corner || lv === 0) id = trim;
+      else if (style === "strip") id = along % 2 ? GLASS : wall;
+      else if (style === "shop" && y - base < fh) id = lv >= 1 && lv <= 3 && along % 4 !== 0 ? GLASS : wall;
+      else if (lv === 2 || lv === 1 && fh >= 5) id = along % 3 ? GLASS : wall;
+      w.set(x, y, z, id);
     }
-    w.set(x, base + h + 1, z, edge ? WHITE : mat);
+    w.set(x, top, z, edge ? trim : TILES);
+    if (edge) w.set(x, top + 1, z, trim);
+  }
+  for (let k = 0; k < floors - 1; k++) {
+    const fy = base + k * fh, row = k % 2 ? z1 - 1 : z0 + 1;
+    for (let i = 0; i < fh; i++) {
+      const x = k % 2 ? x1 - 1 - i : x0 + 1 + i;
+      if (i < fh - 1) w.set(x, fy + 1 + i, row, PLANKS);
+      for (let y = fy + 2 + i; y <= fy + fh + 1 && i < fh - 1; y++) if (y === fy + fh) w.set(x, y, row, 0);
+    }
   }
   const mx = x0 + x1 >> 1, mz = z0 + z1 >> 1;
-  const [dx, dz] = { z0: [mx, z0], z1: [mx, z1], x0: [x0, mz], x1: [x1, mz] }[doorSide];
-  w.set(dx, base + 1, dz, 0);
-  w.set(dx, base + 2, dz, 0);
+  const doors = { z0: [[mx, z0], [mx + 1, z0]], z1: [[mx, z1], [mx + 1, z1]], x0: [[x0, mz], [x0, mz + 1]], x1: [[x1, mz], [x1, mz + 1]] }[door];
+  for (const [dx, dz] of doors) {
+    w.set(dx, base + 1, dz, 0);
+    w.set(dx, base + 2, dz, 0);
+  }
+  if (roofDeco && x1 - x0 >= 6) {
+    const r2 = rnd();
+    if (r2 < 0.4) {
+      box(w, x0 + 2, top + 1, z0 + 2, x0 + 3, top + 1, z0 + 3, WHITE);
+      box(w, x1 - 3, top + 1, z1 - 2, x1 - 2, top + 1, z1 - 2, WHITE);
+    } else if (r2 < 0.7) for (let y = 1; y <= 4; y++) w.set(mx, top + y, mz, y === 4 ? RED : TILES);
+    else for (let x = x0 + 2; x <= x1 - 2; x++) for (let z = z0 + 2; z <= z1 - 2; z++) w.set(x, top + 1, z, (x + z) % 3 ? BUSH : FLOWER);
+  }
+  return top;
 }
 function genCity(w, rnd) {
-  const G = 3, { sx, sz } = w;
+  const G = 3, { sx, sz } = w, P2 = 24, RW = 4;
+  box(w, 0, 0, 0, sx - 1, G - 1, sz - 1, STONE);
+  box(w, 0, G, 0, sx - 1, G, sz - 1, GRASS);
+  const roadAt = (v) => v % P2 >= P2 - RW;
   for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
-    for (let y = 0; y < G; y++) w.set(x, y, z, STONE);
-    w.set(x, G, z, GRASS);
+    const rx = roadAt(x), rz = roadAt(z);
+    if (!rx && !rz) continue;
+    let id = ASPHALT;
+    if (rz && !rx && z % P2 === P2 - 2 && x % 4 < 2) id = YELLOW;
+    if (rx && !rz && x % P2 === P2 - 2 && z % 4 < 2) id = YELLOW;
+    if (rz && !rx && (x % P2 === 0 || x % P2 === P2 - RW - 1) && x % 2 === 0) id = WHITE;
+    if (rx && !rz && (z % P2 === 0 || z % P2 === P2 - RW - 1) && z % 2 === 0) id = WHITE;
+    w.set(x, G, z, id);
   }
-  const road = (v) => v >= 14 && v <= 16 || v >= 31 && v <= 33;
-  for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
-    if (!road(x) && !road(z)) continue;
-    const line = (x === 15 || x === 32) && !road(z) && z % 4 < 2 || (z === 15 || z === 32) && !road(x) && x % 4 < 2;
-    w.set(x, G, z, line ? YELLOW : STONE);
+  const N = Math.floor(sx / P2);
+  const kinds = {};
+  const set = (i, j, k) => {
+    kinds[i + "," + j] = k;
+  };
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) set(i, j, pick(rnd, ["shops", "apart", "shops", "houses"]));
+  set(1, 1, "tower");
+  set(2, 2, "tower");
+  set(2, 1, "tower");
+  set(1, 2, "park");
+  set(0, N - 1, "school");
+  set(N - 1, 0, "parking");
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const x0 = i * P2, z0 = j * P2, x1 = x0 + P2 - RW - 1, z1 = z0 + P2 - RW - 1;
+    const kind = kinds[i + "," + j];
+    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++)
+      if (x - x0 < 2 || x1 - x < 2 || z - z0 < 2 || z1 - z < 2) w.set(x, G, z, TILES);
+    for (let t = 3; t <= x1 - x0 - 3; t += 8) {
+      lamp(w, x0 + t, G, z0);
+      lamp(w, x0 + t, G, z1);
+      lamp(w, x0, G, z0 + t);
+      lamp(w, x1, G, z0 + t);
+      if (kind !== "park") {
+        smallTree(w, x0 + t + 4, G, z1 - 1);
+        smallTree(w, x1 - 1, G, z0 + t + 4);
+      }
+    }
+    const ix0 = x0 + 2, iz0 = z0 + 2, ix1 = x1 - 2, iz1 = z1 - 2;
+    if (kind === "tower") {
+      if (rnd() < 0.5) {
+        building(w, rnd, { x0: ix0, z0: iz0, x1: ix1, z1: iz1 - 8, base: G, floors: ri(rnd, 6, 10), wall: pick(rnd, [BLUE, TILES, WHITE]), style: "strip", door: "z0" });
+        building(w, rnd, { x0: ix0, z0: iz1 - 6, x1: ix0 + 7, z1: iz1, base: G, floors: ri(rnd, 3, 6), wall: pick(rnd, [BRICK, WHITE, PINK]), door: "z1" });
+        building(w, rnd, { x0: ix1 - 6, z0: iz1 - 6, x1: ix1, z1: iz1, base: G, floors: ri(rnd, 4, 8), wall: pick(rnd, [TILES, BLUE, PURPLE]), style: "strip", door: "z1" });
+      } else for (const [a, c] of [[0, 0], [9, 0], [0, 9], [9, 9]]) {
+        building(w, rnd, {
+          x0: ix0 + a,
+          z0: iz0 + c,
+          x1: ix0 + a + 6,
+          z1: iz0 + c + 6,
+          base: G,
+          floors: ri(rnd, 3, 10),
+          wall: pick(rnd, [BLUE, TILES, WHITE, BRICK, PURPLE]),
+          style: rnd() < 0.5 ? "strip" : "window",
+          door: c ? "z1" : "z0"
+        });
+      }
+    } else if (kind === "apart") {
+      const floors = ri(rnd, 4, 6), wall = pick(rnd, [WHITE, PINK, BRICK]);
+      const top = building(w, rnd, { x0: ix0, z0: iz0 + 1, x1: ix1, z1: iz0 + 7, base: G, floors, wall, trim: TILES, door: "z1" });
+      for (let k = 1; k < floors; k++) for (let x = ix0 + 1; x < ix1; x++) if (x % 4 !== 0) {
+        w.set(x, G + k * 4, iz0 + 8, WHITE);
+        w.set(x, G + k * 4 + 1, iz0 + 8, GLASS);
+      }
+      box(w, ix0 + 2, G, iz1 - 5, ix0 + 9, G, iz1, SAND);
+      box(w, ix0 + 3, G + 1, iz1 - 3, ix0 + 3, G + 3, iz1 - 3, RED);
+      box(w, ix0 + 4, G + 3, iz1 - 3, ix0 + 6, G + 3, iz1 - 3, YELLOW);
+      box(w, ix0 + 7, G + 1, iz1 - 1, ix0 + 7, G + 2, iz1 - 1, BLUE);
+      w.set(ix0 + 8, G + 1, iz1 - 1, BLUE);
+      for (let x = ix0 + 11; x <= ix1; x += 3) smallTree(w, x, G, iz1 - 2);
+    } else if (kind === "shops") {
+      const colors = [RED, BLUE, YELLOW, PINK, PURPLE];
+      for (let s = 0; s < 3; s++) {
+        const sx0 = ix0 + s * 6 - (s === 2 ? 1 : 0), sx1 = sx0 + 4;
+        building(w, rnd, { x0: sx0, z0: iz0, x1: sx1, z1: iz0 + 6, base: G, floors: ri(rnd, 1, 2), fh: 5, wall: pick(rnd, [WHITE, BRICK, PLANKS, TILES]), style: "shop", door: "z0", roofDeco: false });
+        const col = colors[(i + j + s) % colors.length];
+        for (let x = sx0; x <= sx1; x++) {
+          w.set(x, G + 4, iz0 - 1, x % 2 ? col : WHITE);
+          w.set(x, G + 5, iz0, col);
+        }
+      }
+      for (let s = 0; s < 2; s++) {
+        const sx0 = ix0 + 1 + s * 8;
+        building(w, rnd, { x0: sx0, z0: iz1 - 5, x1: sx0 + 6, z1: iz1, base: G, floors: ri(rnd, 2, 3), wall: pick(rnd, [BRICK, WHITE, PINK]), style: "shop", door: "z1" });
+        for (let x = sx0; x <= sx0 + 6; x++) w.set(x, G + 4, iz1 + 1, x % 2 ? colors[(i + s) % 5] : WHITE);
+      }
+    } else if (kind === "houses") {
+      for (const [a, c, d] of [[0, 0, "z0"], [9, 0, "z0"], [0, 9, "z1"], [9, 9, "z1"]]) {
+        const hx = ix0 + a, hz = iz0 + c;
+        building(w, rnd, { x0: hx, z0: hz + (d === "z0" ? 1 : 0), x1: hx + 6, z1: hz + 5 + (d === "z0" ? 1 : 0), base: G, floors: ri(rnd, 1, 2), wall: pick(rnd, [WHITE, PLANKS, BRICK, PINK]), trim: PLANKS, door: d, roofDeco: false });
+        w.set(hx + 7, G + 1, hz + 2, FLOWER);
+        w.set(hx + 7, G + 1, hz + 4, FLOWER);
+      }
+    } else if (kind === "park") {
+      const cx = ix0 + ix1 >> 1, cz = iz0 + iz1 >> 1;
+      for (let x = ix0; x <= ix1; x++) for (let z = iz0; z <= iz1; z++) {
+        const d = Math.hypot(x - cx, z - cz);
+        if (Math.abs(d - 6) < 0.8 || x === cx || z === cz) w.set(x, G, z, SAND);
+        else if (rnd() < 0.08) w.set(x, G + 1, z, FLOWER);
+      }
+      box(w, cx - 2, G, cz - 2, cx + 2, G, cz + 2, WATER);
+      for (let x = cx - 2; x <= cx + 2; x++) for (let z = cz - 2; z <= cz + 2; z++)
+        if (Math.abs(x - cx) === 2 || Math.abs(z - cz) === 2) w.set(x, G + 1, z, WHITE);
+      box(w, cx, G + 1, cz, cx, G + 3, cz, WHITE);
+      w.set(cx, G + 4, cz, WATER);
+      box(w, ix0 + 1, G - 1, iz1 - 4, ix0 + 5, G, iz1 - 1, WATER);
+      for (const [bx, bz] of [[cx - 5, cz - 8], [cx + 3, cz + 8]]) box(w, bx, G + 1, bz, bx + 2, G + 1, bz, PLANKS);
+      for (const [tx, tz] of [[ix0 + 2, iz0 + 2], [ix1 - 2, iz0 + 2], [ix1 - 2, iz1 - 2], [ix0 + 9, iz1 - 2], [ix1 - 2, cz - 3]]) w.tree(tx, G, tz, rnd);
+    } else if (kind === "school") {
+      building(w, rnd, { x0: ix0, z0: iz0, x1: ix1, z1: iz0 + 6, base: G, floors: 3, wall: pick(rnd, [BRICK, WHITE]), trim: WHITE, door: "z1" });
+      for (let x = ix0 + 1; x <= ix1 - 1; x++) for (let z = iz0 + 9; z <= iz1; z++) {
+        const ring = x === ix0 + 1 || x === ix1 - 1 || z === iz0 + 9 || z === iz1;
+        w.set(x, G, z, ring ? RED : GRASS);
+      }
+      box(w, ix0 + 3, G + 1, iz0 + 12, ix0 + 3, G + 2, iz0 + 14, WHITE);
+      box(w, ix1 - 3, G + 1, iz0 + 12, ix1 - 3, G + 2, iz0 + 14, WHITE);
+      box(w, ix1, G + 1, iz0 + 8, ix1, G + 7, iz0 + 8, WHITE);
+      box(w, ix1 - 2, G + 6, iz0 + 8, ix1 - 1, G + 7, iz0 + 8, RED);
+    } else if (kind === "parking") {
+      for (let x = ix0; x <= ix1; x++) for (let z = iz0; z <= iz1; z++) w.set(x, G, z, (x - ix0) % 3 === 0 && (z - iz0) % 8 < 5 ? WHITE : ASPHALT);
+      for (let x = ix0 + 1; x <= ix1; x += 3) for (const z of [iz0 + 1, iz0 + 9]) if (rnd() < 0.7) car(w, x, G + 1, z + 1, false, pick(rnd, [RED, BLUE, WHITE, YELLOW, PURPLE]));
+    }
   }
-  const cells = [[0, 13], [17, 30], [34, 47]];
-  cells.forEach(([a, b], i) => cells.forEach(([c, d], j) => {
-    for (let x = a; x <= b; x++) for (let z = c; z <= d; z++)
-      if (x === a || x === b || z === c || z === d) w.set(x, G, z, TILES);
-    for (const [lx, lz] of [[a, c], [b, c], [a, d], [b, d]]) {
-      for (let y = G + 1; y <= G + 3; y++) w.set(lx, y, lz, WHITE);
-      w.set(lx, G + 4, lz, YELLOW);
-    }
-    if (i === 1 && j === 1) {
-      const cx = a + b >> 1, cz = c + d >> 1;
-      for (let x = cx - 2; x <= cx + 2; x++) for (let z = cz - 2; z <= cz + 2; z++) {
-        const rim = Math.abs(x - cx) === 2 || Math.abs(z - cz) === 2;
-        if (rim) w.set(x, G + 1, z, WHITE);
-        else w.set(x, G, z, BLUE);
-      }
-      w.set(cx, G + 1, cz, WHITE);
-      w.set(cx, G + 2, cz, BLUE);
-      for (const [tx, tz] of [[a + 3, c + 3], [b - 3, c + 3], [a + 3, d - 3], [b - 3, d - 3]]) w.tree(tx, G, tz, rnd);
-      for (let x = a + 1; x < b; x++) for (const z of [c + 1, d - 1]) if (rnd() < 0.5) w.set(x, G + 1, z, BUSH);
-      return;
-    }
-    for (let lx = 0; lx < 2; lx++) for (let lz = 0; lz < 2; lz++) {
-      const ox = a + 1 + lx * 6, oz = c + 1 + lz * 6;
-      if (rnd() < 0.22) {
-        w.tree(ox + 2, G, oz + 2, rnd);
-        continue;
-      }
-      const h = 4 + Math.floor(rnd() * 10);
-      const mat = pick(rnd, [BRICK, WHITE, TILES, BLUE, BRICK, PINK, PLANKS]);
-      building(w, ox, oz, ox + 4, oz + 4, G, h, mat, rnd, lz === 0 ? "z0" : "z1");
-    }
-  }));
+  for (let k = 0; k < 18; k++) {
+    const along = rnd() < 0.5, lane = Math.floor(rnd() * N) * P2 + P2 - RW, pos = ri(rnd, 2, sx - 4);
+    if (roadAt(pos) || roadAt(pos + 1)) continue;
+    const x = along ? pos : lane, z = along ? lane : pos;
+    car(w, x, G + 1, z, along, pick(rnd, [RED, BLUE, WHITE, YELLOW, PINK]));
+  }
 }
 function genVillage(w, rnd, noise) {
   const { sx, sz } = w;
+  const hAt = (x, z) => 8 + Math.round(noise(x / 28, z / 28) * 4 + noise(x / 9 + 40, z / 9) * 1.2);
   for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
-    const h = 5 + Math.round(noise(x / 20, z / 20) * 3);
+    const h = hAt(x, z);
     for (let y = 0; y <= h; y++) w.set(x, y, z, y === h ? GRASS : y > h - 3 ? DIRT : STONE);
   }
   const reserved = new Uint8Array(sx * sz);
@@ -494,62 +661,211 @@ function genVillage(w, rnd, noise) {
     for (let x = Math.max(0, x0); x <= Math.min(sx - 1, x1); x++)
       for (let z = Math.max(0, z0); z <= Math.min(sz - 1, z1); z++) reserved[x * sz + z] = 1;
   };
-  const flatten = (x0, z0, x1, z1, base) => {
-    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
-      for (let y = 1; y < w.sy; y++) w.set(x, y, z, y < base ? DIRT : y === base ? GRASS : 0);
-    }
+  const free = (x0, z0, x1, z1) => {
+    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) if (x < 0 || z < 0 || x >= sx || z >= sz || reserved[x * sz + z]) return false;
+    return true;
   };
-  for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
-    if (x === 23 || x === 24 || z === 23 || z === 24) {
-      const y = w.topY(x, z);
-      w.set(x, y, z, DIRT);
+  const ground = (x, z) => w.topY(x, z);
+  const WL = 7, riverX = (z) => 72 + Math.round(Math.sin(z / 11) * 5);
+  for (let z = 0; z < sz; z++) {
+    const rx = riverX(z);
+    for (let x = rx - 4; x <= rx + 3; x++) {
+      const bank = x === rx - 4 || x === rx + 3 || x === rx - 3 || x === rx + 2;
+      for (let y = 1; y < w.sy; y++) w.set(x, y, z, y < WL - 1 ? STONE : y === WL - 1 ? SAND : y <= WL && !bank ? WATER : y <= WL && bank ? SAND : 0);
+      if (bank) w.set(x, WL, z, SAND);
     }
+    reserve(rx - 5, z, rx + 4, z);
   }
-  reserve(22, 0, 25, sz - 1);
-  reserve(0, 22, sx - 1, 25);
-  for (const [fx, fz, fw, fd] of [[28, 6, 12, 9], [6, 28, 10, 12]]) {
-    const base = w.topY(fx + (fw >> 1), fz + (fd >> 1));
-    flatten(fx - 1, fz - 1, fx + fw, fz + fd, base);
+  const clampPass = (p, from, to) => {
+    for (let i = to + 1; i < p.length; i++) p[i] = Math.max(p[i - 1] - 1, Math.min(p[i - 1] + 1, p[i]));
+    for (let i = from - 1; i >= 0; i--) p[i] = Math.max(p[i + 1] - 1, Math.min(p[i + 1] + 1, p[i]));
+  };
+  const rxA = Math.min(...[45, 50].map(riverX)), rxB = Math.max(...[45, 50].map(riverX));
+  const west = rxA - 6, east = rxB + 5;
+  const mainP = Array.from({ length: sx }, (_, x) => hAt(x, 47));
+  const deckY = Math.max(mainP[west - 1], mainP[east + 1], WL + 2);
+  for (let x = west; x <= east; x++) mainP[x] = deckY;
+  clampPass(mainP, west, east);
+  const branchP = Array.from({ length: sz }, (_, z) => hAt(31, z));
+  for (let z = 46; z <= 49; z++) branchP[z] = mainP[31];
+  clampPass(branchP, 46, 49);
+  for (let x = 0; x < sx; x++) if (x < west || x > east) flatten(w, x, 46, x, 49, mainP[x], DIRT);
+  for (let z = 0; z < sz; z++) if (z < 46 || z > 49) flatten(w, 30, z, 32, z, branchP[z], DIRT);
+  reserve(0, 45, sx - 1, 50);
+  reserve(29, 0, 33, sz - 1);
+  for (let z = 45; z <= 50; z++) for (let x = west; x <= east; x++) {
+    for (let y = deckY + 1; y < deckY + 4; y++) w.set(x, y, z, 0);
+    const rail = z === 45 || z === 50;
+    w.set(x, deckY, z, rail ? LOG : PLANKS);
+    if (rail && x % 2 === 0) w.set(x, deckY + 1, z, LOG);
+    if (!rail && x % 5 === 0) for (let y = WL - 1; y < deckY; y++) w.set(x, y, z, LOG);
+  }
+  const pb = ground(23, 40);
+  flatten(w, 17, 35, 28, 44, pb, TILES);
+  const wx = 22, wz = 39;
+  box(w, wx - 1, pb + 1, wz - 1, wx + 1, pb + 1, wz + 1, TILES);
+  w.set(wx, pb + 1, wz, WATER);
+  w.set(wx, pb, wz, WATER);
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(w, wx + dx, pb + 2, wz + dz, wx + dx, pb + 3, wz + dz, LOG);
+  box(w, wx - 1, pb + 4, wz - 1, wx + 1, pb + 4, wz + 1, ROOF);
+  box(w, 18, pb + 1, 43, 20, pb + 1, 43, PLANKS);
+  box(w, 25, pb + 1, 36, 27, pb + 1, 36, PLANKS);
+  for (const [fx, fz] of [[17, 35], [28, 35], [17, 44], [28, 44]]) w.set(fx, pb + 1, fz, FLOWER);
+  reserve(16, 34, 29, 45);
+  const field = (fx, fz, fw, fd, kind) => {
+    const base = ground(fx + (fw >> 1), fz + (fd >> 1));
+    flatten(w, fx - 1, fz - 1, fx + fw, fz + fd, base);
     for (let x = fx; x < fx + fw; x++) for (let z = fz; z < fz + fd; z++) {
       w.set(x, base, z, FARM);
-      if ((z - fz) % 2 === 0) w.set(x, base + 1, z, CROP);
+      const row = (z - fz) % 2 === 0;
+      if (kind === "wheat" && row) w.set(x, base + 1, z, CROP);
+      if (kind === "pumpkin" && row && (x + z) % 3 === 0) w.set(x, base + 1, z, PUMPKIN);
+      if (kind === "cabbage" && row && x % 2 === 0) w.set(x, base + 1, z, BUSH);
     }
     for (let x = fx - 1; x <= fx + fw; x++) for (let z = fz - 1; z <= fz + fd; z++) {
       const ring = x === fx - 1 || x === fx + fw || z === fz - 1 || z === fz + fd;
-      const gate = z === fz - 1 && Math.abs(x - (fx + (fw >> 1))) <= 0;
-      if (ring && !gate) w.set(x, base + 1, z, LOG);
+      const gate = z === fz + fd && x === fx + (fw >> 1);
+      if (ring && !gate && ((x + z) % 2 === 0 || x === fx - 1 || x === fx + fw)) w.set(x, base + 1, z, LOG);
+    }
+    if (kind === "wheat") {
+      const cx = fx + (fw >> 1), cz = fz + (fd >> 1) | 1;
+      box(w, cx, base + 1, cz, cx, base + 3, cz, LOG);
+      w.set(cx, base + 4, cz, HAY);
+      w.set(cx - 1, base + 3, cz, PLANKS);
+      w.set(cx + 1, base + 3, cz, PLANKS);
     }
     reserve(fx - 2, fz - 2, fx + fw + 1, fz + fd + 1);
-  }
-  for (const [hx, hz] of [[41, 17], [8, 41]]) {
-    const b = w.topY(hx, hz);
-    for (const [dx, dz, dy] of [[0, 0, 1], [1, 0, 1], [0, 1, 1], [0, 0, 2]]) w.set(hx + dx, b + dy, hz + dz, HAY);
-    reserve(hx - 1, hz - 1, hx + 2, hz + 2);
-  }
-  for (const [hx, hz, door] of [[6, 7, "x1"], [14, 14, "z1"], [29, 29, "z0"], [37, 37, "x0"]]) {
-    const base = w.topY(hx + 2, hz + 2);
-    flatten(hx - 1, hz - 1, hx + 5, hz + 5, base);
-    building(w, hx, hz, hx + 4, hz + 4, base, 3, PLANKS, rnd, door);
-    for (const [cx, cz] of [[hx, hz], [hx + 4, hz], [hx, hz + 4], [hx + 4, hz + 4]])
-      for (let y = base + 1; y <= base + 3; y++) w.set(cx, y, cz, LOG);
-    const roof = pick(rnd, [RED, BLUE, PURPLE, RED]);
-    for (let k = 0; k <= 3; k++) {
-      const y = base + 4 + k, r2 = 3 - k;
-      for (let x = hx + 2 - r2; x <= hx + 2 + r2; x++) for (let z = hz + 2 - r2; z <= hz + 2 + r2; z++) w.set(x, y, z, roof);
+  };
+  field(4, 4, 11, 10, "wheat");
+  field(18, 4, 9, 10, "pumpkin");
+  field(4, 19, 11, 10, "cabbage");
+  field(18, 19, 9, 10, "wheat");
+  const house = (hx, hz, wd, dp, door, wall, roof) => {
+    const base = ground(hx + (wd >> 1), hz + (dp >> 1));
+    flatten(w, hx - 2, hz - 2, hx + wd + 1, hz + dp + 1, base);
+    const x1 = hx + wd - 1, z1 = hz + dp - 1, top = base + 4;
+    for (let x = hx; x <= x1; x++) for (let z = hz; z <= z1; z++) {
+      const ex = x === hx || x === x1, ez = z === hz || z === z1;
+      w.set(x, base, z, PLANKS);
+      for (let y = base + 1; y <= top; y++) {
+        if (!ex && !ez) {
+          w.set(x, y, z, 0);
+          continue;
+        }
+        const corner = ex && ez, along = ex ? z : x;
+        w.set(x, y, z, corner || y === top ? LOG : y === base + 2 && along % 3 === 1 ? GLASS : wall);
+      }
     }
-    reserve(hx - 2, hz - 2, hx + 6, hz + 6);
-  }
-  for (let i = 0; i < 40; i++) {
-    const x = 3 + Math.floor(rnd() * (sx - 6)), z = 3 + Math.floor(rnd() * (sz - 6));
-    let ok = true;
-    for (let dx = -2; dx <= 2 && ok; dx++) for (let dz = -2; dz <= 2; dz++) if (reserved[(x + dx) * sz + z + dz]) {
-      ok = false;
-      break;
+    for (let k = 0; ; k++) {
+      const za = hz - 1 + k, zb = z1 + 1 - k, y = top + 1 + k;
+      if (za > zb) break;
+      for (let x = hx - 1; x <= x1 + 1; x++) {
+        w.set(x, y, za, roof);
+        w.set(x, y, zb, roof);
+      }
+      for (let z = za + 1; z < zb; z++) {
+        w.set(hx, y, z, wall);
+        w.set(x1, y, z, wall);
+      }
+      if (za === zb || za + 1 === zb) break;
     }
-    const y = w.topY(x, z);
-    if (!ok || w.get(x, y, z) !== GRASS) continue;
+    const cx = x1 - 1;
+    for (let y = top + 1; y <= top + Math.ceil(dp / 2) + 2; y++) w.set(cx, y, hz + 1, BRICK);
+    const mx = hx + x1 >> 1, dz = door === "z0" ? hz : z1, out = door === "z0" ? -1 : 1;
+    w.set(mx, base + 1, dz, 0);
+    w.set(mx, base + 2, dz, 0);
+    for (let x = hx - 1; x <= x1 + 1; x++) if (x !== mx && x % 2 === 0) w.set(x, base + 1, dz + out * 2, LOG);
+    for (let x = hx; x <= x1; x++) if (x !== mx && rnd() < 0.6) w.set(x, base + 1, dz + out, FLOWER);
+    reserve(hx - 3, hz - 3, hx + wd + 2, hz + dp + 2);
+  };
+  const walls = [PLANKS, WHITE, PLANKS, BRICK], roofs = [ROOF, RED, ROOF, BLUE];
+  [[36, 37, "z1"], [46, 37, "z1"], [56, 37, "z1"], [36, 53, "z0"], [46, 53, "z0"], [56, 53, "z0"], [80, 53, "z0"], [82, 36, "z1"]].forEach(([hx, hz, d], k) => house(hx, hz, 7, 6, d, walls[k % 4], roofs[(k + 1) % 4]));
+  {
+    const bx = 38, bz = 8, bw = 11, bd = 9, base = ground(bx + 5, bz + 4);
+    flatten(w, bx - 3, bz - 3, bx + bw + 8, bz + bd + 3, base);
+    const x1 = bx + bw - 1, z1 = bz + bd - 1, top = base + 5;
+    for (let x = bx; x <= x1; x++) for (let z = bz; z <= z1; z++) {
+      const ex = x === bx || x === x1, ez = z === bz || z === z1;
+      w.set(x, base, z, PLANKS);
+      for (let y = base + 1; y <= top; y++) w.set(x, y, z, !ex && !ez ? 0 : ex && ez || y === top ? WHITE : RED);
+    }
+    for (let k = 0; ; k++) {
+      const xa = bx - 1 + k, xb = x1 + 1 - k, y = top + 1 + k;
+      if (xa > xb) break;
+      for (let z = bz - 1; z <= z1 + 1; z++) {
+        w.set(xa, y, z, ROOF);
+        w.set(xb, y, z, ROOF);
+      }
+      for (let x = xa + 1; x < xb; x++) {
+        w.set(x, y, bz, RED);
+        w.set(x, y, z1, RED);
+      }
+      if (xb - xa <= 1) break;
+    }
+    const mx = bx + x1 >> 1;
+    box(w, mx - 1, base + 1, z1, mx + 1, base + 3, z1, 0);
+    for (const [dx, dy] of [[-2, 1], [-2, 2], [-2, 3], [2, 1], [2, 2], [2, 3], [-1, 4], [0, 4], [1, 4]]) w.set(mx + dx, base + dy, z1 + 1, WHITE);
+    box(w, bx + 1, base + 1, bz + 1, bx + 3, base + 2, bz + 2, HAY);
+    box(w, x1 - 2, base + 1, bz + 1, x1 - 1, base + 1, bz + 3, HAY);
+    const sx0 = x1 + 4, sz0 = bz + 4;
+    for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) {
+      const d = Math.hypot(x, z);
+      if (d <= 2.9) for (let y = base + 1; y <= base + 11; y++) w.set(sx0 + x, y, sz0 + z, d > 1.9 ? y % 4 === 0 ? TILES : WHITE : 0);
+      if (d <= 2.9) w.set(sx0 + x, base + 12, sz0 + z, RED);
+      if (d <= 1.9) w.set(sx0 + x, base + 13, sz0 + z, RED);
+    }
+    for (const [hx, hz] of [[bx - 2, z1 + 2], [bx, z1 + 3]]) {
+      box(w, hx, base + 1, hz, hx + 1, base + 1, hz, HAY);
+      w.set(hx, base + 2, hz, HAY);
+    }
+    reserve(bx - 4, bz - 4, bx + bw + 9, bz + bd + 4);
+  }
+  for (const px of [82, 89]) for (const pz of [4, 12, 20, 28]) {
+    if (!free(px - 1, pz - 1, px + 6, pz + 6)) continue;
+    const base = ground(px + 3, pz + 3);
+    flatten(w, px - 1, pz - 1, px + 6, pz + 6, base, DIRT);
+    for (let x = px; x <= px + 5; x++) for (let z = pz; z <= pz + 5; z++) {
+      w.set(x, base, z, WATER);
+      if ((x + z) % 2 === 0) w.set(x, base + 1, z, CROP);
+    }
+    reserve(px - 1, pz - 1, px + 6, pz + 6);
+  }
+  for (let x = 6; x <= 26; x += 5) for (let z = 58; z <= 88; z += 5) {
+    const y = ground(x, z);
+    if (!free(x - 2, z - 2, x + 2, z + 2)) continue;
+    w.set(x, y, z, DIRT);
     w.tree(x, y, z, rnd);
     reserve(x - 2, z - 2, x + 2, z + 2);
+  }
+  {
+    const cx = 45, cz = 70, base = ground(cx, cz);
+    flatten(w, cx - 8, cz - 6, cx + 8, cz + 6, base);
+    for (let x = cx - 7; x <= cx + 7; x++) for (let z = cz - 5; z <= cz + 5; z++) {
+      const d = ((x - cx) / 6.5) ** 2 + ((z - cz) / 4.5) ** 2;
+      if (d <= 1) {
+        w.set(x, base, z, WATER);
+        w.set(x, base - 1, z, d < 0.5 ? WATER : SAND);
+      } else if (d <= 1.5 && rnd() < 0.5) w.set(x, base + 1, z, FLOWER);
+    }
+    box(w, cx - 1, base + 1, cz + 3, cx + 1, base + 1, cz + 6, PLANKS);
+    reserve(cx - 9, cz - 7, cx + 9, cz + 7);
+  }
+  for (const [hx, hz] of [[16, 32], [6, 16], [60, 60]]) if (free(hx, hz, hx + 1, hz + 1)) {
+    const b = ground(hx, hz);
+    box(w, hx, b + 1, hz, hx + 1, b + 1, hz, HAY);
+    w.set(hx, b + 2, hz, HAY);
+    reserve(hx - 1, hz - 1, hx + 2, hz + 2);
+  }
+  for (let i = 0; i < 260; i++) {
+    const x = 3 + Math.floor(rnd() * (sx - 6)), z = 3 + Math.floor(rnd() * (sz - 6));
+    if (!free(x - 2, z - 2, x + 2, z + 2)) continue;
+    const y = ground(x, z);
+    if (w.get(x, y, z) !== GRASS) continue;
+    const edge = x < 12 || z > 84 || x > 86 || x > 52 && x < 64 && z > 62;
+    if (edge || rnd() < 0.25) {
+      w.tree(x, y, z, rnd);
+      reserve(x - 2, z - 2, x + 2, z + 2);
+    } else if (rnd() < 0.5) w.set(x, y + 1, z, FLOWER);
   }
 }
 
@@ -576,7 +892,12 @@ var TILE_NAMES = [
   "purple",
   "farmland",
   "crop",
-  "hay"
+  "hay",
+  "asphalt",
+  "water",
+  "flower",
+  "roof",
+  "pumpkin"
 ];
 var T = Object.fromEntries(TILE_NAMES.map((n, i) => [n, i]));
 var BLOCKS = [
@@ -599,7 +920,12 @@ var BLOCKS = [
   { name: "보라 블록", tiles: ["purple"] },
   { name: "밭", tiles: ["farmland", "dirt", "dirt"] },
   { name: "작물", tiles: ["crop"], clear: true, pass: true },
-  { name: "건초", tiles: ["hay"] }
+  { name: "건초", tiles: ["hay"] },
+  { name: "아스팔트", tiles: ["asphalt"] },
+  { name: "물", tiles: ["water"], pass: true },
+  { name: "꽃", tiles: ["flower"], clear: true, pass: true },
+  { name: "기와", tiles: ["roof"] },
+  { name: "호박", tiles: ["pumpkin"] }
 ];
 var faceTile = (id, f) => {
   const t = BLOCKS[id].tiles;
@@ -781,6 +1107,45 @@ function drawAtlas() {
           circle(x, 4, 2.2, "#f7d974");
         }
         break;
+      case "asphalt":
+        fill("#5d636e");
+        dots("#6c727d", 9, 0.7, 1.4);
+        dots("#4f545e", 6, 0.7, 1.4);
+        bevel(0.25);
+        break;
+      case "water":
+        fill("#4f9fe0");
+        g.strokeStyle = "#86c6f3";
+        g.lineWidth = 2;
+        g.lineCap = "round";
+        for (const [y, o] of [[7, 0], [15, 8], [23, 3], [30, 11]]) {
+          g.beginPath();
+          g.moveTo(o, y);
+          g.quadraticCurveTo(o + 5, y - 3, o + 10, y);
+          g.quadraticCurveTo(o + 15, y + 3, o + 20, y);
+          g.stroke();
+        }
+        break;
+      case "flower":
+        for (const [x, y, col] of [[8, 9, "#f58fb8"], [22, 7, "#ffd34d"], [15, 17, "#e8615e"], [26, 19, "#b99af0"]]) {
+          rr(x - 0.8, y, 1.8, 32 - y, 0.8, "#4fa556");
+          for (let a = 0; a < 5; a++) circle(x + Math.cos(a * 1.257) * 2.6, y + Math.sin(a * 1.257) * 2.6, 2, col);
+          circle(x, y, 1.5, "#fff6c9");
+        }
+        circle(5, 27, 2.5, "#5cb860");
+        circle(19, 28, 2.5, "#5cb860");
+        break;
+      case "roof":
+        fill("#4b5871");
+        for (let y = 0; y < 32; y += 6) for (let x = y / 6 % 2 ? 0 : 3; x < 34; x += 6) circle(x, y + 3, 3, "#64728e");
+        bevel(0.5);
+        break;
+      case "pumpkin":
+        fill("#f08a24");
+        for (const x of [6, 14, 22]) rr(x, 0, 3, 32, 1.5, "#d46f14");
+        circle(9, 8, 2, "rgba(255,255,255,.35)");
+        bevel();
+        break;
       case "hay":
         fill("#e9c25a");
         for (let y = 2; y < 32; y += 4) rr(0, y, 32, 1.5, 0.5, "#d1a63e");
@@ -830,7 +1195,7 @@ var AO = [0.5, 0.7, 0.85, 1];
 var toLinear = (v) => Math.pow(v, 2.2);
 var CHUNK = 16;
 var World = class {
-  constructor(sx = 48, sy = 32, sz = 48) {
+  constructor(sx = 96, sy = 48, sz = 96) {
     this.sx = sx;
     this.sy = sy;
     this.sz = sz;
@@ -1644,7 +2009,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.5 : 2));
 var scene = new THREE4.Scene();
 var SKY = 10474751;
 scene.background = new THREE4.Color(SKY);
-scene.fog = new THREE4.Fog(SKY, 28, 75);
+scene.fog = new THREE4.Fog(SKY, 32, 95);
 var camera = new THREE4.PerspectiveCamera(75, 1, 0.05, 200);
 camera.rotation.order = "YXZ";
 function resize() {
@@ -2094,6 +2459,8 @@ async function doSave(manual = true) {
 var newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 function startWorld(m, saved, { fresh = !saved } = {}) {
   meta = m;
+  scene.fog.near = 32;
+  scene.fog.far = 95;
   const w = new World(saved?.sx, saved?.sy, saved?.sz);
   if (saved) w.data.set(saved.data);
   else w.generate(m.seed, m.type);
@@ -2243,8 +2610,8 @@ async function renderSaves() {
   let cloud = [];
   if (currentUser()) cloud = await busy(listCloud) || [];
   const list = [...cloud, ...local].sort((a, b) => b.updated - a.updated);
-  const box = $("saves");
-  box.innerHTML = "";
+  const box2 = $("saves");
+  box2.innerHTML = "";
   $("savesWrap").hidden = !list.length;
   for (const w of list) {
     const card = document.createElement("div");
@@ -2264,7 +2631,7 @@ async function renderSaves() {
       else deleteWorld(w.id);
       renderSaves();
     });
-    box.appendChild(card);
+    box2.appendChild(card);
   }
 }
 function renderAccount() {
@@ -2283,6 +2650,8 @@ function toTitle() {
   mobs.clear();
   applyLight(1);
   document.body.classList.remove("surv");
+  scene.fog.near = 60;
+  scene.fog.far = 170;
   mode = "title";
   show("title");
   renderAccount();
@@ -2418,8 +2787,8 @@ function frame(now) {
   last = now;
   if (mode === "title") {
     const a = now / 9e3, cx = world.sx / 2, cz = world.sz / 2;
-    camera.position.set(cx + Math.cos(a) * 36, 26, cz + Math.sin(a) * 36);
-    camera.lookAt(cx, 8, cz);
+    camera.position.set(cx + Math.cos(a) * 62, 42, cz + Math.sin(a) * 62);
+    camera.lookAt(cx, 6, cz);
   } else {
     if (mode === "play") {
       updatePlayer(dt);
