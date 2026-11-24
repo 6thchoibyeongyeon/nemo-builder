@@ -91,7 +91,7 @@ body { position: fixed; inset: 0; user-select: none; -webkit-user-select: none; 
 .crosshair::after { top: 10px; left: 0; height: 2px; width: 22px; }
 
 .topbar { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; }
-.chip { margin-right: auto; background: rgba(255,248,231,.9); border: 2px solid var(--ink); border-radius: 8px;
+.chip { background: rgba(255,248,231,.9); border: 2px solid var(--ink); border-radius: 8px;
   padding: .3em .7em; max-width: 50vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 #hotbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: max(12px, env(safe-area-inset-bottom));
@@ -148,7 +148,42 @@ body.touch .slot { width: 44px; height: 44px; }
   #joy, .tbtns { bottom: calc(max(8px, env(safe-area-inset-bottom)) + 62px); }
   #joy { width: 104px; height: 104px; }
 }
+
+/* ---------- 계정 · 로그인 · 같이 짓기 ---------- */
+.account { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: center; text-align: center;
+  background: var(--paper-2); border-radius: 10px; padding: 10px 12px; margin-bottom: 4px; font-size: .92rem; color: #4b3f30; }
+.account span { flex: 1 1 200px; }
+.field small { color: var(--muted); font-size: .8em; }
+.err { color: #c0392b; min-height: 1.2em; margin: 4px 0 0; font-size: .92rem; }
+.err:empty { display: none; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.btn.google { background: #fff; }
+.btn.google b { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; margin-right: 6px; border-radius: 50%;
+  color: #fff; background: conic-gradient(#ea4335 0 25%, #fbbc05 0 50%, #34a853 0 75%, #4285f4 0); font-family: sans-serif; }
+.or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .85rem; margin: 16px 0 10px; }
+.or::before, .or::after { content: ''; flex: 1; height: 2px; background: var(--paper-2); }
+.codein { text-transform: uppercase; letter-spacing: .3em; font-size: 1.5rem !important; text-align: center; }
+.roombox { margin-top: 12px; }
+#roomInfo { background: var(--paper-2); border-radius: 10px; padding: 12px; text-align: center; margin-top: 4px; }
+#roomInfo small { color: var(--muted); }
+#roomInfo p { margin: 6px 0 10px; font-size: .9rem; color: #4b3f30; }
+.code { font-family: 'Do Hyeon', sans-serif; font-size: 2.4rem; letter-spacing: .25em; line-height: 1.2; }
+.chip.room { background: #e3f5d6; flex-shrink: 0; }
+#btnSave { margin-left: auto; }
+.topbar .btn { flex-shrink: 0; white-space: nowrap; }
+.topbar .chip { min-width: 0; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 480px) { .topbar .lbl { display: none; } }
 </style>
+<script>
+// ▼ Firebase 설정 (로그인 · 클라우드 저장 · 같이 짓기). 비워 두면 혼자 하기 + 이 기기 저장만 됩니다.
+window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
+  apiKey: "",
+  authDomain: "",
+  databaseURL: "",
+  projectId: "",
+  appId: ""
+};
+</script>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" } }
 </script>
@@ -161,7 +196,8 @@ body.touch .slot { width: 44px; height: 44px; }
   <div class="crosshair"></div>
   <div class="topbar">
     <span id="worldName" class="chip"></span>
-    <button id="btnSave" class="btn small">💾 저장</button>
+    <span id="roomChip" class="chip room" hidden></span>
+    <button id="btnSave" class="btn small">💾<span class="lbl"> 저장</span></button>
     <button id="btnMenu" class="btn small" aria-label="메뉴">☰</button>
   </div>
   <div id="blockName"></div>
@@ -184,7 +220,13 @@ body.touch .slot { width: 44px; height: 44px; }
   <div class="card">
     <h1 class="logo"><span>네모</span>건축가</h1>
     <p class="tagline">블록을 하나씩 쌓아 나만의 세상을 지어 보세요</p>
+    <div id="account" class="account" hidden>
+      <span id="accountText"></span>
+      <button id="btnLogin" class="btn small">로그인 / 회원가입</button>
+      <button id="btnLogout" class="btn small ghost" hidden>로그아웃</button>
+    </div>
     <button id="btnNew" class="btn primary wide">＋ 새 월드 만들기</button>
+    <button id="btnJoin" class="btn wide" hidden>👥 친구 방 참가하기</button>
     <div id="savesWrap" hidden>
       <h2>내 월드</h2>
       <div id="saves"></div>
@@ -196,7 +238,7 @@ body.touch .slot { width: 44px; height: 44px; }
         <div><b>📱 폰</b><br>왼쪽 조이스틱으로 이동<br>화면을 끌어서 둘러보기<br>⛏ 부수기 · 🧱 놓기 (꾹 누르면 연속)<br>⬆ 점프 · ✈ 비행</div>
       </div>
     </details>
-    <p class="foot">작업한 월드는 이 브라우저에 자동 저장돼요</p>
+    <p id="saveFoot" class="foot">작업한 월드는 이 브라우저에 자동 저장돼요</p>
   </div>
 </section>
 
@@ -221,38 +263,86 @@ body.touch .slot { width: 44px; height: 44px; }
   <div class="card narrow">
     <h2>잠깐 멈춤</h2>
     <button id="btnResume" class="btn primary wide">계속하기</button>
+    <div id="roomBox" class="roombox" hidden>
+      <div id="roomOpen"><button id="btnOpenRoom" class="btn wide">👥 친구와 같이 짓기 (방 열기)</button></div>
+      <div id="roomInfo" hidden>
+        <small>방 코드</small>
+        <div id="roomCode" class="code"></div>
+        <p id="roomHint"></p>
+        <button id="btnCopyRoom" class="btn small">🔗 초대 링크 복사</button>
+      </div>
+    </div>
     <button id="btnSavePause" class="btn wide">💾 저장하기</button>
     <button id="btnTitle" class="btn ghost wide">처음 화면으로</button>
   </div>
+</section>
+
+<!-- 로그인 / 회원가입 -->
+<section id="login" class="overlay" hidden>
+  <form id="loginForm" class="card narrow">
+    <h2>로그인 · 회원가입</h2>
+    <button type="button" id="btnGoogle" class="btn wide google"><b>G</b> Google로 계속하기</button>
+    <div class="or"><span>또는 이메일로</span></div>
+    <label class="field">닉네임 <small>(회원가입할 때, 선택)</small><input id="nickInput" maxlength="12" autocomplete="nickname"></label>
+    <label class="field">이메일<input id="emailInput" type="email" autocomplete="email" required></label>
+    <label class="field">비밀번호 <small>(6자 이상)</small><input id="pwInput" type="password" autocomplete="current-password" required></label>
+    <p id="loginErr" class="err" role="alert"></p>
+    <div class="row2">
+      <button class="btn primary" type="submit">로그인</button>
+      <button class="btn" type="button" id="btnSignup">회원가입</button>
+    </div>
+    <button type="button" id="btnGuest" class="btn ghost wide">가입 없이 게스트로 시작</button>
+    <button type="button" id="btnCancelLogin" class="btn ghost wide">돌아가기</button>
+  </form>
+</section>
+
+<!-- 친구 방 참가 -->
+<section id="join" class="overlay" hidden>
+  <form id="joinForm" class="card narrow">
+    <h2>친구 방 참가하기</h2>
+    <label class="field">방 코드<input id="codeInput" class="codein" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="ABCDE"></label>
+    <label class="field">내 이름표<input id="joinNick" maxlength="12" autocomplete="nickname"></label>
+    <p id="joinErr" class="err" role="alert"></p>
+    <button id="joinSubmit" class="btn primary wide" type="submit">참가하기</button>
+    <button type="button" id="btnCancelJoin" class="btn ghost wide">돌아가기</button>
+  </form>
 </section>
 
 <div id="toast" role="status"></div>
 <noscript>이 게임은 자바스크립트가 필요해요.</noscript>
 <script type="module">
 // 네모건축가 - 이 파일 하나에 게임 전체가 들어 있습니다. (3D 엔진: three.js r160, MIT)
+var __defProp = Object.defineProperty;
+var __export = (target2, all) => {
+  for (var name in all)
+    __defProp(target2, name, { get: all[name], enumerable: true });
+};
+
 // ===== main.js =====
-import * as THREE2 from "three";
+import * as THREE3 from "three";
 
 // ===== world.js =====
 import * as THREE from "three";
-var TILE = 16;
+var TILE = 32;
 var TILE_NAMES = [
   "grass_top",
   "grass_side",
   "dirt",
   "stone",
-  "cobble",
+  "tiles",
   "log_top",
   "log_side",
   "planks",
   "brick",
   "glass",
   "sand",
-  "leaves",
+  "bush",
   "white",
   "red",
   "blue",
-  "yellow"
+  "yellow",
+  "pink",
+  "purple"
 ];
 var T = Object.fromEntries(TILE_NAMES.map((n, i) => [n, i]));
 var BLOCKS = [
@@ -260,17 +350,19 @@ var BLOCKS = [
   { name: "잔디", tiles: ["grass_top", "grass_side", "dirt"] },
   { name: "흙", tiles: ["dirt"] },
   { name: "돌", tiles: ["stone"] },
-  { name: "조약돌", tiles: ["cobble"] },
-  { name: "원목", tiles: ["log_top", "log_side", "log_top"] },
-  { name: "판자", tiles: ["planks"] },
+  { name: "돌타일", tiles: ["tiles"] },
+  { name: "통나무", tiles: ["log_top", "log_side", "log_top"] },
+  { name: "나무판", tiles: ["planks"] },
   { name: "벽돌", tiles: ["brick"] },
-  { name: "유리", tiles: ["glass"], clear: true },
+  { name: "유리창", tiles: ["glass"], clear: true },
   { name: "모래", tiles: ["sand"] },
-  { name: "나뭇잎", tiles: ["leaves"], clear: true },
+  { name: "덤불", tiles: ["bush"], clear: true },
   { name: "하양 블록", tiles: ["white"] },
   { name: "빨강 블록", tiles: ["red"] },
   { name: "파랑 블록", tiles: ["blue"] },
-  { name: "노랑 블록", tiles: ["yellow"] }
+  { name: "노랑 블록", tiles: ["yellow"] },
+  { name: "분홍 블록", tiles: ["pink"] },
+  { name: "보라 블록", tiles: ["purple"] }
 ];
 var faceTile = (id, f) => {
   const t = BLOCKS[id].tiles;
@@ -290,99 +382,160 @@ function drawAtlas() {
   c.width = TILE * TILE_NAMES.length;
   c.height = TILE;
   const g = c.getContext("2d");
-  const rnd = mulberry32(7);
-  const rgb = (hex, k) => {
-    const n = parseInt(hex.slice(1), 16);
-    const f = (v) => Math.max(0, Math.min(255, Math.round(v * k)));
-    return `rgb(${f(n >> 16)},${f(n >> 8 & 255)},${f(n & 255)})`;
-  };
-  const px = (t, x, y, col) => {
+  const rnd = mulberry32(11);
+  const fill = (col) => {
     g.fillStyle = col;
-    g.fillRect(t * TILE + x, y, 1, 1);
+    g.fillRect(0, 0, TILE, TILE);
   };
-  const noisy = (hex, amt) => rgb(hex, 1 - amt / 2 + rnd() * amt);
-  const each = (fn) => {
-    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) fn(x, y);
+  const rr = (x, y, w, h, r2, col) => {
+    g.fillStyle = col;
+    g.beginPath();
+    g.roundRect(x, y, w, h, r2);
+    g.fill();
+  };
+  const circle = (x, y, r2, col) => {
+    g.fillStyle = col;
+    g.beginPath();
+    g.arc(x, y, r2, 0, Math.PI * 2);
+    g.fill();
+  };
+  const dots = (col, n, r0, r1) => {
+    for (let i = 0; i < n; i++) circle(4 + rnd() * 24, 4 + rnd() * 24, r0 + rnd() * (r1 - r0), col);
+  };
+  const vgrad = (top, bottom) => {
+    const gr = g.createLinearGradient(0, 0, 0, TILE);
+    gr.addColorStop(0, top);
+    gr.addColorStop(1, bottom);
+    g.fillStyle = gr;
+    g.fillRect(0, 0, TILE, TILE);
+  };
+  const bevel = (k = 1) => {
+    g.fillStyle = `rgba(255,255,255,${0.4 * k})`;
+    g.fillRect(0, 0, TILE, 2);
+    g.fillRect(0, 0, 2, TILE);
+    g.fillStyle = `rgba(0,0,0,${0.16 * k})`;
+    g.fillRect(0, TILE - 2, TILE, 2);
+    g.fillRect(TILE - 2, 0, 2, TILE);
+  };
+  const candy = (col, light) => {
+    fill(col);
+    rr(5, 5, 22, 22, 6, light);
+    circle(10, 10, 2.2, "rgba(255,255,255,.55)");
+    bevel();
   };
   TILE_NAMES.forEach((name, t) => {
+    g.save();
+    g.translate(t * TILE, 0);
+    g.beginPath();
+    g.rect(0, 0, TILE, TILE);
+    g.clip();
     switch (name) {
       case "grass_top":
-        each((x, y) => px(t, x, y, noisy("#6cbb3c", 0.28)));
+        fill("#86d47c");
+        dots("#9fe390", 7, 2, 4);
+        dots("#72c56a", 5, 1.5, 3);
+        bevel();
+        break;
+      case "grass_side":
+        vgrad("#86d47c", "#63b35d");
+        dots("#94dc88", 4, 1.5, 3);
+        bevel();
         break;
       case "dirt":
-        each((x, y) => px(t, x, y, noisy("#8b5a2b", 0.32)));
+        fill("#c08a5b");
+        dots("#a97448", 6, 1.5, 3);
+        dots("#d6a273", 5, 1, 2);
+        bevel();
         break;
-      case "grass_side": {
-        each((x, y) => px(t, x, y, noisy("#8b5a2b", 0.32)));
-        for (let x = 0; x < TILE; x++) {
-          const h = 3 + Math.floor(rnd() * 3);
-          for (let y = 0; y < h; y++) px(t, x, y, noisy("#6cbb3c", 0.28));
-        }
-        break;
-      }
       case "stone":
-        each((x, y) => px(t, x, y, noisy("#8c8c8c", 0.22)));
+        fill("#a3adbb");
+        dots("#b6bfcb", 5, 3, 5.5);
+        dots("#8e98a7", 5, 1.2, 2.4);
+        bevel();
         break;
-      case "cobble":
-        each((x, y) => {
-          const edge = (x + Math.floor(y / 5) % 2 * 3) % 6 === 0 || y % 5 === 0;
-          px(t, x, y, edge ? noisy("#555555", 0.2) : noisy("#9a9a9a", 0.25));
-        });
+      case "tiles":
+        fill("#8b94a3");
+        for (const [x, y] of [[2, 2], [17, 2], [2, 17], [17, 17]]) rr(x, y, 13, 13, 3.5, "#b3bbc7");
+        bevel(0.6);
         break;
       case "log_top":
-        each((x, y) => {
-          const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
-          px(t, x, y, d > 6.5 ? noisy("#6b4a2b", 0.2) : noisy(Math.floor(d) % 2 ? "#c49a5a" : "#a9824a", 0.12));
-        });
+        fill("#a9744a");
+        [[14, "#c9925f"], [10.5, "#e2b27f"], [7, "#cf9965"], [3.5, "#e2b27f"], [1.5, "#b37c4e"]].forEach(([r2, col]) => circle(16, 16, r2, col));
+        bevel();
         break;
       case "log_side":
-        each((x, y) => px(t, x, y, noisy(x % 4 === 0 ? "#4f361f" : "#6b4a2b", 0.22)));
+        fill("#a3714a");
+        for (const x of [3, 11, 19, 26]) rr(x, -2, 3, 36, 1.5, "#8a5c3a");
+        bevel();
         break;
       case "planks":
-        each((x, y) => {
-          const seam = y % 4 === 3 || (x + Math.floor(y / 4) % 2 * 8) % 16 === 0;
-          px(t, x, y, seam ? noisy("#7a5630", 0.1) : noisy("#b8894f", 0.14));
-        });
+        fill("#c99a5e");
+        for (let i = 0; i < 4; i++) {
+          rr(1, i * 8 + 1, 30, 6, 3, "#eec48c");
+          circle(i % 2 ? 6 : 26, i * 8 + 4, 1, "#b8864f");
+        }
+        bevel(0.7);
         break;
       case "brick":
-        each((x, y) => {
-          const mortar = y % 4 === 3 || (x + Math.floor(y / 4) % 2 * 4) % 8 === 7;
-          px(t, x, y, mortar ? noisy("#cfc6b8", 0.08) : noisy("#a5432f", 0.2));
-        });
+        fill("#f3e3cf");
+        for (let r2 = 0; r2 < 4; r2++) for (let x = r2 % 2 ? -8 : 0; x < 32; x += 16) rr(x + 1, r2 * 8 + 1, 14, 6, 2.5, "#e07a5f");
+        bevel(0.6);
         break;
       case "glass":
-        each((x, y) => {
-          if (x === 0 || y === 0 || x === 15 || y === 15) px(t, x, y, "#e6f6ff");
-          else if (x === y && x > 2 && x < 7 || x === y + 1 && x > 3 && x < 7) px(t, x, y, "#ffffff");
-        });
+        g.strokeStyle = "#d4f1ff";
+        g.lineWidth = 3;
+        g.beginPath();
+        g.roundRect(1.5, 1.5, 29, 29, 4);
+        g.stroke();
+        g.strokeStyle = "#ffffff";
+        g.lineWidth = 2.5;
+        g.lineCap = "round";
+        g.beginPath();
+        g.moveTo(8, 18);
+        g.lineTo(18, 8);
+        g.moveTo(9, 24);
+        g.lineTo(13, 20);
+        g.stroke();
         break;
       case "sand":
-        each((x, y) => px(t, x, y, noisy("#e3d39a", 0.14)));
+        fill("#f2deaa");
+        dots("#e4ca8a", 10, 0.8, 1.6);
+        dots("#fbedc8", 7, 0.8, 1.6);
+        bevel(0.7);
         break;
-      case "leaves":
-        each((x, y) => {
-          if (rnd() > 0.16) px(t, x, y, noisy("#3f8f2f", 0.4));
-        });
+      case "bush":
+        for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+          const cx = 4 + x * 8 + (rnd() - 0.5) * 3, cy = 4 + y * 8 + (rnd() - 0.5) * 3;
+          circle(cx, cy, 4.6, ["#5dbb63", "#4ea956", "#69c46d"][Math.floor(rnd() * 3)]);
+          circle(cx - 1.4, cy - 1.4, 1.4, "#8ad98a");
+        }
         break;
       case "white":
-        each((x, y) => px(t, x, y, noisy("#eeeeee", 0.07)));
+        candy("#ece8e0", "#f8f6f1");
         break;
       case "red":
-        each((x, y) => px(t, x, y, noisy("#d0393b", 0.1)));
+        candy("#e8615e", "#f27f7b");
         break;
       case "blue":
-        each((x, y) => px(t, x, y, noisy("#3a5fd0", 0.1)));
+        candy("#4f80e6", "#6c98f0");
         break;
       case "yellow":
-        each((x, y) => px(t, x, y, noisy("#f0c93a", 0.1)));
+        candy("#f7c548", "#ffd76b");
+        break;
+      case "pink":
+        candy("#f39abd", "#f8b5cf");
+        break;
+      case "purple":
+        candy("#9d7fd6", "#b59ae3");
         break;
     }
+    g.restore();
   });
   return c;
 }
 var atlasCanvas = drawAtlas();
 var texture = new THREE.CanvasTexture(atlasCanvas);
-texture.magFilter = texture.minFilter = THREE.NearestFilter;
+texture.magFilter = texture.minFilter = THREE.LinearFilter;
 texture.generateMipmaps = false;
 texture.colorSpace = THREE.SRGBColorSpace;
 var blockMaterial = new THREE.MeshBasicMaterial({ map: texture, vertexColors: true, alphaTest: 0.5 });
@@ -390,7 +543,6 @@ function blockIcon(id, size = 64) {
   const c = document.createElement("canvas");
   c.width = c.height = size;
   const g = c.getContext("2d");
-  g.imageSmoothingEnabled = false;
   const s = size / 2 / TILE, q = size / 4;
   const face = (tile, m, dark) => {
     g.setTransform(...m);
@@ -415,7 +567,7 @@ var FACES = [
   { dir: [0, 0, -1], f: 1, shade: 0.65, c: [[1, 0, 0, 0, 0], [0, 0, 0, 1, 0], [1, 1, 0, 0, 1], [0, 1, 0, 1, 1]] },
   { dir: [0, 0, 1], f: 1, shade: 0.65, c: [[0, 0, 1, 0, 0], [1, 0, 1, 1, 0], [0, 1, 1, 0, 1], [1, 1, 1, 1, 1]] }
 ];
-var AO = [0.45, 0.65, 0.82, 1].map((v) => v);
+var AO = [0.5, 0.7, 0.85, 1];
 var toLinear = (v) => Math.pow(v, 2.2);
 var CHUNK = 16;
 var World = class {
@@ -479,21 +631,17 @@ var World = class {
       const x = 3 + Math.floor(rnd() * (sx - 6)), z = 3 + Math.floor(rnd() * (sz - 6));
       const y = this.topY(x, z);
       if (this.get(x, y, z) !== 1) continue;
-      const th = 4 + Math.floor(rnd() * 2);
-      for (let dy = -2; dy <= 1; dy++) {
-        const r = dy >= 0 ? 1 : 2;
-        for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
-          if (Math.abs(dx) === r && Math.abs(dz) === r && rnd() < 0.5) continue;
-          const lx = x + dx, ly = y + th + dy, lz = z + dz;
-          if (!this.get(lx, ly, lz)) this.set(lx, ly, lz, 10);
-        }
+      const th = 4 + Math.floor(rnd() * 2), cy = y + th + 1;
+      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) for (let dz = -2; dz <= 2; dz++) {
+        if (dx * dx + dy * dy * 1.6 + dz * dz > 5.2 + rnd()) continue;
+        if (!this.get(x + dx, cy + dy, z + dz)) this.set(x + dx, cy + dy, z + dz, 10);
       }
       for (let k = 1; k <= th; k++) this.set(x, y + k, z, 5);
     }
   }
   buildChunk(cx, cz) {
     const pos = [], col = [], uv = [], index = [];
-    const N = TILE_NAMES.length, e = 0.02 / TILE;
+    const N = TILE_NAMES.length, e = 0.5 / TILE;
     for (let y = 0; y < this.sy; y++)
       for (let z = cz * CHUNK; z < Math.min((cz + 1) * CHUNK, this.sz); z++)
         for (let x = cx * CHUNK; x < Math.min((cx + 1) * CHUNK, this.sx); x++) {
@@ -614,8 +762,8 @@ function createInput(canvas2, h) {
   const joyEl = document.getElementById("joy"), knob = document.getElementById("joyKnob");
   const R = 46;
   const moveJoy = (e) => {
-    const r = joyEl.getBoundingClientRect();
-    let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const r2 = joyEl.getBoundingClientRect();
+    let dx = e.clientX - (r2.left + r2.width / 2), dy = e.clientY - (r2.top + r2.height / 2);
     const d = Math.hypot(dx, dy);
     if (d > R) {
       dx *= R / d;
@@ -665,8 +813,8 @@ function createInput(canvas2, h) {
     state: st,
     locked,
     lock() {
-      const r = canvas2.requestPointerLock();
-      if (r && r.catch) r.catch(() => h.onLockChange(false));
+      const r2 = canvas2.requestPointerLock();
+      if (r2 && r2.catch) r2.catch(() => h.onLockChange(false));
     },
     poll() {
       const k = (c) => keys.has(c) ? 1 : 0;
@@ -676,9 +824,9 @@ function createInput(canvas2, h) {
       st.down = !!(k("ShiftLeft") || k("ShiftRight") || touchBtn.down);
     },
     takeLook() {
-      const r = [st.lookX, st.lookY];
+      const r2 = [st.lookX, st.lookY];
       st.lookX = st.lookY = 0;
-      return r;
+      return r2;
     }
   };
 }
@@ -699,13 +847,6 @@ function safeSet(key, val) {
     return true;
   } catch {
     return false;
-  }
-}
-function listWorlds() {
-  try {
-    return (JSON.parse(safeGet(LIST_KEY)) || []).sort((a, b) => b.updated - a.updated);
-  } catch {
-    return [];
   }
 }
 function encode(data) {
@@ -732,18 +873,27 @@ function decode(str, size) {
   }
   return data;
 }
-function saveWorld(meta2, world2, player, thumb) {
-  const body = JSON.stringify({ v: 1, sx: world2.sx, sy: world2.sy, sz: world2.sz, data: encode(world2.data), player });
-  if (!safeSet(worldKey(meta2.id), body)) return false;
+var serialize = (world2, player) => ({ v: 1, sx: world2.sx, sy: world2.sy, sz: world2.sz, data: encode(world2.data), player: player || null });
+function deserialize(o) {
+  if (!o || !o.data) return null;
+  return { sx: o.sx, sy: o.sy, sz: o.sz, data: decode(o.data, o.sx * o.sy * o.sz), player: o.player || null };
+}
+function listWorlds() {
+  try {
+    return (JSON.parse(safeGet(LIST_KEY)) || []).map((w) => ({ ...w, where: "local" }));
+  } catch {
+    return [];
+  }
+}
+function saveWorld(meta2, body, thumb) {
+  if (!safeSet(worldKey(meta2.id), JSON.stringify(body))) return false;
   const list = listWorlds().filter((w) => w.id !== meta2.id);
-  list.unshift({ id: meta2.id, name: meta2.name, type: meta2.type, updated: Date.now(), thumb: thumb || meta2.thumb || "" });
-  return safeSet(LIST_KEY, JSON.stringify(list));
+  list.unshift({ id: meta2.id, name: meta2.name, type: meta2.type || "", updated: Date.now(), thumb: thumb || "" });
+  return safeSet(LIST_KEY, JSON.stringify(list.map(({ where, ...w }) => w)));
 }
 function loadWorld(id) {
   try {
-    const o = JSON.parse(safeGet(worldKey(id)));
-    if (!o) return null;
-    return { sx: o.sx, sy: o.sy, sz: o.sz, data: decode(o.data, o.sx * o.sy * o.sz), player: o.player };
+    return deserialize(JSON.parse(safeGet(worldKey(id))));
   } catch {
     return null;
   }
@@ -753,20 +903,315 @@ function deleteWorld(id) {
     localStorage.removeItem(worldKey(id));
   } catch {
   }
-  safeSet(LIST_KEY, JSON.stringify(listWorlds().filter((w) => w.id !== id)));
+  safeSet(LIST_KEY, JSON.stringify(listWorlds().filter((w) => w.id !== id).map(({ where, ...w }) => w)));
 }
+
+// ===== net.js =====
+var net_exports = {};
+__export(net_exports, {
+  createRoom: () => createRoom,
+  currentUser: () => currentUser,
+  deleteCloud: () => deleteCloud,
+  enabled: () => enabled,
+  enterRoom: () => enterRoom,
+  errMsg: () => errMsg,
+  fetchRoom: () => fetchRoom,
+  init: () => init,
+  leaveRoom: () => leaveRoom,
+  listCloud: () => listCloud,
+  loadCloud: () => loadCloud,
+  loginEmail: () => loginEmail,
+  loginGoogle: () => loginGoogle,
+  loginGuest: () => loginGuest,
+  logout: () => logout,
+  myId: () => myId,
+  nickname: () => nickname,
+  onUser: () => onUser,
+  saveCloud: () => saveCloud,
+  sendEdit: () => sendEdit,
+  sendPose: () => sendPose,
+  setNick: () => setNick,
+  signupEmail: () => signupEmail
+});
+var BASE = "https://www.gstatic.com/firebasejs/10.14.1/";
+var fb = null;
+var auth = null;
+var db = null;
+var user = null;
+var userListeners = /* @__PURE__ */ new Set();
+var enabled = () => !!(window.NEMO_FIREBASE && window.NEMO_FIREBASE.apiKey);
+async function init() {
+  if (!enabled()) return false;
+  const [A, U, D] = await Promise.all(["firebase-app.js", "firebase-auth.js", "firebase-database.js"].map((f) => import(BASE + f)));
+  fb = { ...A, ...U, ...D };
+  const app = A.initializeApp(window.NEMO_FIREBASE);
+  auth = U.getAuth(app);
+  db = D.getDatabase(app);
+  if (window.NEMO_EMULATOR) {
+    U.connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+    D.connectDatabaseEmulator(db, "127.0.0.1", 9e3);
+  }
+  await new Promise((res) => U.onAuthStateChanged(auth, (u) => {
+    user = u;
+    userListeners.forEach((f) => f(u));
+    res();
+  }));
+  return true;
+}
+var ERR = {
+  "auth/invalid-email": "이메일 형식이 올바르지 않아요.",
+  "auth/missing-password": "비밀번호를 입력해 주세요.",
+  "auth/weak-password": "비밀번호는 6자 이상이어야 해요.",
+  "auth/email-already-in-use": "이미 가입된 이메일이에요. 로그인을 눌러 주세요.",
+  "auth/invalid-credential": "이메일 또는 비밀번호가 맞지 않아요.",
+  "auth/wrong-password": "이메일 또는 비밀번호가 맞지 않아요.",
+  "auth/user-not-found": "가입되지 않은 이메일이에요. 회원가입을 눌러 주세요.",
+  "auth/popup-closed-by-user": "로그인 창이 닫혔어요.",
+  "auth/cancelled-popup-request": "로그인 창이 닫혔어요.",
+  "auth/popup-blocked": "팝업이 차단됐어요. 브라우저에서 팝업을 허용해 주세요.",
+  "auth/unauthorized-domain": "이 사이트 주소가 Firebase 승인된 도메인에 없어요.",
+  "auth/operation-not-allowed": "이 로그인 방식이 Firebase에서 꺼져 있어요.",
+  "auth/admin-restricted-operation": "게스트 로그인이 Firebase에서 꺼져 있어요.",
+  "auth/network-request-failed": "인터넷 연결을 확인해 주세요.",
+  "auth/too-many-requests": "시도가 너무 많아요. 잠시 후 다시 해 주세요."
+};
+function errMsg(e) {
+  if (ERR[e?.code]) return ERR[e.code];
+  if (String(e?.message || e).includes("PERMISSION_DENIED")) return "권한이 없어요. 데이터베이스 규칙을 확인해 주세요.";
+  return "문제가 생겼어요 (" + (e?.code || e?.message || e) + ")";
+}
+var currentUser = () => user;
+function onUser(f) {
+  userListeners.add(f);
+  f(user);
+}
+var loginGoogle = () => fb.signInWithPopup(auth, new fb.GoogleAuthProvider());
+var loginEmail = (email2, pw2) => fb.signInWithEmailAndPassword(auth, email2, pw2);
+async function signupEmail(email2, pw2, nick) {
+  const c = await fb.createUserWithEmailAndPassword(auth, email2, pw2);
+  if (nick) {
+    await fb.updateProfile(c.user, { displayName: nick });
+    setNick(nick);
+    userListeners.forEach((f) => f(user));
+  }
+}
+var loginGuest = () => fb.signInAnonymously(auth);
+var logout = () => fb.signOut(auth);
+function setNick(n) {
+  safeSet("nemo:nick", n.slice(0, 12));
+}
+function nickname() {
+  const n = safeGet("nemo:nick");
+  if (n) return n;
+  if (!user) return "";
+  return user.displayName || (user.email ? user.email.split("@")[0] : "손님" + user.uid.slice(0, 4));
+}
+var r = (p) => fb.ref(db, p);
+async function listCloud() {
+  if (!user) return [];
+  const s = await fb.get(r(`users/${user.uid}/meta`));
+  return Object.values(s.val() || {}).map((w) => ({ ...w, where: "cloud" }));
+}
+function saveCloud(meta2, body, thumb) {
+  return fb.update(r(`users/${user.uid}`), {
+    [`meta/${meta2.id}`]: { id: meta2.id, name: meta2.name, type: meta2.type || "", updated: Date.now(), thumb: thumb || "" },
+    [`data/${meta2.id}`]: body
+  });
+}
+async function loadCloud(id) {
+  return (await fb.get(r(`users/${user.uid}/data/${id}`))).val();
+}
+var deleteCloud = (id) => fb.update(r(`users/${user.uid}`), { [`meta/${id}`]: null, [`data/${id}`]: null });
+var CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+var room = null;
+async function createRoom(name, body) {
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code = Array.from({ length: 5 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join("");
+    if (!(await fb.get(r("rooms/" + code))).exists()) break;
+  }
+  await fb.set(r("rooms/" + code), { host: user.uid, hostName: nickname(), name, created: Date.now(), ...body });
+  return code;
+}
+async function fetchRoom(code) {
+  return (await fb.get(r("rooms/" + code))).val();
+}
+function enterRoom(code, h) {
+  leaveRoom();
+  const me = user.uid, myKeys = /* @__PURE__ */ new Set(), pref = r("roomPlayers/" + code);
+  const unsubs = [
+    fb.onChildAdded(r("roomEdits/" + code), (s) => {
+      if (!myKeys.has(s.key)) h.onEdit(s.val());
+    }),
+    fb.onChildAdded(pref, (s) => s.key !== me && h.onPlayer(s.key, s.val())),
+    fb.onChildChanged(pref, (s) => s.key !== me && h.onPlayer(s.key, s.val())),
+    fb.onChildRemoved(pref, (s) => h.onLeave(s.key))
+  ];
+  const meRef = r(`roomPlayers/${code}/${me}`);
+  fb.onDisconnect(meRef).remove();
+  room = { code, unsubs, meRef, myKeys };
+}
+function sendEdit(x, y, z, b) {
+  if (!room) return;
+  const k = fb.push(r("roomEdits/" + room.code));
+  room.myKeys.add(k.key);
+  fb.set(k, { x, y, z, b, u: user.uid }).catch(() => {
+  });
+}
+function sendPose(p) {
+  if (room) fb.set(room.meRef, p).catch(() => {
+  });
+}
+function leaveRoom() {
+  if (!room) return;
+  room.unsubs.forEach((u) => u());
+  fb.onDisconnect(room.meRef).cancel();
+  fb.remove(room.meRef).catch(() => {
+  });
+  room = null;
+}
+var myId = () => user && user.uid;
+
+// ===== players.js =====
+import * as THREE2 from "three";
+var COLORS = ["#e8615e", "#4f80e6", "#f7c548", "#5dbb63", "#f39abd", "#9d7fd6", "#f28c3a", "#3fbfb3"];
+var colorFor = (id) => COLORS[([...id].reduce((a, ch) => a * 31 + ch.charCodeAt(0) | 0, 7) >>> 0) % COLORS.length];
+var SHADE = [0.8, 0.8, 1, 0.55, 0.68, 0.68];
+function boxMats(hex) {
+  const c = new THREE2.Color(hex);
+  return SHADE.map((k) => new THREE2.MeshBasicMaterial({ color: c.clone().multiplyScalar(k) }));
+}
+function faceMat(hex) {
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 32;
+  const g = cv.getContext("2d");
+  g.fillStyle = "#fbe3c8";
+  g.fillRect(0, 0, 32, 32);
+  g.fillStyle = "#2a2118";
+  g.beginPath();
+  g.arc(10, 15, 2.6, 0, 7);
+  g.arc(22, 15, 2.6, 0, 7);
+  g.fill();
+  g.fillStyle = "#f2a0a0";
+  g.beginPath();
+  g.arc(7, 21, 2, 0, 7);
+  g.arc(25, 21, 2, 0, 7);
+  g.fill();
+  g.strokeStyle = "#2a2118";
+  g.lineWidth = 1.6;
+  g.beginPath();
+  g.arc(16, 19, 3, 0.2, Math.PI - 0.2);
+  g.stroke();
+  const tex = new THREE2.CanvasTexture(cv);
+  tex.colorSpace = THREE2.SRGBColorSpace;
+  return new THREE2.MeshBasicMaterial({ map: tex });
+}
+function label(text) {
+  const cv = document.createElement("canvas");
+  cv.width = 256;
+  cv.height = 64;
+  const g = cv.getContext("2d");
+  g.font = "32px Jua, sans-serif";
+  const w = Math.min(240, g.measureText(text).width + 28);
+  g.fillStyle = "rgba(42,33,24,.72)";
+  g.beginPath();
+  g.roundRect((256 - w) / 2, 8, w, 48, 14);
+  g.fill();
+  g.fillStyle = "#fff";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(text, 128, 33);
+  const tex = new THREE2.CanvasTexture(cv);
+  tex.colorSpace = THREE2.SRGBColorSpace;
+  const sp = new THREE2.Sprite(new THREE2.SpriteMaterial({ map: tex, depthWrite: false }));
+  sp.scale.set(1.6, 0.4, 1);
+  sp.position.y = 2.15;
+  return sp;
+}
+function makeAvatar(name, color) {
+  const group = new THREE2.Group();
+  const legs = new THREE2.Mesh(new THREE2.BoxGeometry(0.5, 0.6, 0.3), boxMats("#5a4a3a"));
+  legs.position.y = 0.3;
+  const body = new THREE2.Mesh(new THREE2.BoxGeometry(0.62, 0.62, 0.36), boxMats(color));
+  body.position.y = 0.91;
+  const headMats = boxMats(color);
+  headMats[5] = faceMat(color);
+  const head = new THREE2.Mesh(new THREE2.BoxGeometry(0.56, 0.56, 0.56), headMats);
+  head.position.y = 1.5;
+  const tag = label(name);
+  group.add(legs, body, head, tag);
+  return { group, head, tag, name, target: null, yaw: 0 };
+}
+var Others = class {
+  constructor(scene2) {
+    this.scene = scene2;
+    this.map = /* @__PURE__ */ new Map();
+  }
+  get count() {
+    return this.map.size;
+  }
+  upsert(id, d) {
+    if (!d || typeof d.x !== "number") return;
+    let o = this.map.get(id);
+    if (!o) {
+      o = makeAvatar(d.n || "친구", d.c || colorFor(id));
+      o.group.position.set(d.x, d.y, d.z);
+      o.yaw = d.r || 0;
+      this.scene.add(o.group);
+      this.map.set(id, o);
+    }
+    if (d.n && d.n !== o.name) {
+      o.group.remove(o.tag);
+      o.tag = label(d.n);
+      o.group.add(o.tag);
+      o.name = d.n;
+    }
+    o.target = d;
+  }
+  remove(id) {
+    const o = this.map.get(id);
+    if (!o) return;
+    this.scene.remove(o.group);
+    o.group.traverse((m) => {
+      m.geometry?.dispose();
+      [].concat(m.material || []).forEach((x) => {
+        x.map?.dispose();
+        x.dispose();
+      });
+    });
+    this.map.delete(id);
+  }
+  clear() {
+    [...this.map.keys()].forEach((id) => this.remove(id));
+  }
+  update(dt) {
+    const k = 1 - Math.exp(-dt * 12);
+    for (const o of this.map.values()) {
+      const t = o.target;
+      if (!t) continue;
+      o.group.position.x += (t.x - o.group.position.x) * k;
+      o.group.position.y += (t.y - o.group.position.y) * k;
+      o.group.position.z += (t.z - o.group.position.z) * k;
+      let d = (t.r || 0) - o.yaw;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      o.yaw += d * k;
+      o.group.rotation.y = o.yaw;
+      o.head.rotation.x = (t.p || 0) * 0.6;
+    }
+  }
+};
 
 // ===== main.js =====
 var $ = (id) => document.getElementById(id);
 if (isTouch) document.body.classList.add("touch");
 var canvas = $("game");
-var renderer = new THREE2.WebGLRenderer({ canvas, antialias: !isTouch });
+var renderer = new THREE3.WebGLRenderer({ canvas, antialias: !isTouch });
 renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.5 : 2));
-var scene = new THREE2.Scene();
+var scene = new THREE3.Scene();
 var SKY = 10474751;
-scene.background = new THREE2.Color(SKY);
-scene.fog = new THREE2.Fog(SKY, 28, 75);
-var camera = new THREE2.PerspectiveCamera(75, 1, 0.05, 200);
+scene.background = new THREE3.Color(SKY);
+scene.fog = new THREE3.Fog(SKY, 28, 75);
+var camera = new THREE3.PerspectiveCamera(75, 1, 0.05, 200);
 camera.rotation.order = "YXZ";
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
@@ -775,11 +1220,12 @@ function resize() {
 }
 addEventListener("resize", resize);
 resize();
-var chunkGroup = new THREE2.Group();
+var chunkGroup = new THREE3.Group();
 scene.add(chunkGroup);
-var highlight = new THREE2.LineSegments(
-  new THREE2.EdgesGeometry(new THREE2.BoxGeometry(1.004, 1.004, 1.004)),
-  new THREE2.LineBasicMaterial({ color: 1118481, transparent: true, opacity: 0.6 })
+var others = new Others(scene);
+var highlight = new THREE3.LineSegments(
+  new THREE3.EdgesGeometry(new THREE3.BoxGeometry(1.004, 1.004, 1.004)),
+  new THREE3.LineBasicMaterial({ color: 1118481, transparent: true, opacity: 0.6 })
 );
 highlight.visible = false;
 scene.add(highlight);
@@ -809,13 +1255,15 @@ function rebuildDirty(limit = 4) {
       chunkGroup.remove(old);
       old.geometry.dispose();
     }
-    const mesh = new THREE2.Mesh(world.buildChunk(cx, cz), blockMaterial);
+    const mesh = new THREE3.Mesh(world.buildChunk(cx, cz), blockMaterial);
     chunkMeshes.set(key, mesh);
     chunkGroup.add(mesh);
   }
 }
-function setBlock(x, y, z, id) {
+function setBlock(x, y, z, id, fromNet = false) {
+  if (!world.inBounds(x, y, z) || world.get(x, y, z) === id) return;
   world.set(x, y, z, id);
+  if (!fromNet && room2) sendEdit(x, y, z, id);
   const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK);
   for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
     const nx = Math.floor((x + dx) / CHUNK), nz = Math.floor((z + dz) / CHUNK);
@@ -827,7 +1275,7 @@ function setBlock(x, y, z, id) {
 var W = 0.3;
 var H = 1.8;
 var EYE = 1.62;
-var P = { pos: new THREE2.Vector3(), vel: new THREE2.Vector3(), yaw: 0, pitch: 0, onGround: false, fly: false };
+var P = { pos: new THREE3.Vector3(), vel: new THREE3.Vector3(), yaw: 0, pitch: 0, onGround: false, fly: false };
 function spawn() {
   const x = Math.floor(world.sx / 2), z = Math.floor(world.sz / 2);
   P.pos.set(x + 0.5, world.topY(x, z) + 1, z + 0.5);
@@ -886,7 +1334,7 @@ function updatePlayer(dt) {
   if (P.pos.y < -10) spawn();
 }
 function raycast(maxD = 6) {
-  const o = camera.position, d = new THREE2.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  const o = camera.position, d = new THREE3.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
   let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
   const step = [Math.sign(d.x), Math.sign(d.y), Math.sign(d.z)];
   const tDelta = [Math.abs(1 / d.x), Math.abs(1 / d.y), Math.abs(1 / d.z)];
@@ -946,6 +1394,8 @@ selectSlot(0);
 var mode = "title";
 var changed = false;
 var lastSave = 0;
+var saving = false;
+var room2 = null;
 var input = createInput(canvas, {
   active: () => mode === "play",
   onBreak: breakBlock,
@@ -973,16 +1423,26 @@ function play() {
 }
 function pause() {
   mode = "pause";
+  renderRoomBox();
   show("pause");
-  if (changed) doSave(false);
+  if (document.pointerLockElement) document.exitPointerLock();
+  if (changed && canAutoSave()) doSave(false);
 }
 function toast(msg) {
   const t = $("toast");
   t.textContent = msg;
   t.classList.add("show");
   clearTimeout(toast.t);
-  toast.t = setTimeout(() => t.classList.remove("show"), 1600);
+  toast.t = setTimeout(() => t.classList.remove("show"), 2200);
 }
+var busy = async (fn) => {
+  try {
+    return await fn();
+  } catch (e) {
+    console.warn(e);
+    toast(errMsg(e));
+  }
+};
 function thumbnail() {
   highlight.visible = false;
   renderer.render(scene, camera);
@@ -996,21 +1456,25 @@ function thumbnail() {
   c.getContext("2d").drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, 240, 135);
   return c.toDataURL("image/jpeg", 0.7);
 }
-function doSave(manual = true) {
-  if (!world || !meta) return;
-  const ok = saveWorld(
-    meta,
-    world,
-    { x: P.pos.x, y: P.pos.y, z: P.pos.z, yaw: P.yaw, pitch: P.pitch, fly: P.fly },
-    thumbnail()
-  );
-  if (ok) {
+var pose = () => ({ x: P.pos.x, y: P.pos.y, z: P.pos.z, yaw: P.yaw, pitch: P.pitch, fly: P.fly });
+var canAutoSave = () => !room2 || room2.host;
+async function doSave(manual = true) {
+  if (!world || !meta || saving) return;
+  saving = true;
+  const body = serialize(world, pose()), thumb = thumbnail();
+  try {
+    if (meta.where === "cloud" && currentUser()) await saveCloud(meta, body, thumb);
+    else if (!saveWorld(meta, body, thumb)) throw new Error("저장 공간이 부족해요. 오래된 월드를 지워 주세요.");
     changed = false;
     lastSave = performance.now();
-    if (manual) toast("저장했어요 💾");
-  } else toast("저장 공간이 부족해요. 오래된 월드를 지워 주세요.");
+    if (manual) toast(room2 && !room2.host ? "내 월드에 복사본으로 저장했어요 💾" : meta.where === "cloud" ? "클라우드에 저장했어요 ☁" : "이 기기에 저장했어요 💾");
+  } catch (e) {
+    toast(e.code ? errMsg(e) : e.message);
+  }
+  saving = false;
 }
-function startWorld(m, saved) {
+var newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+function startWorld(m, saved, { fresh = !saved } = {}) {
   meta = m;
   const w = new World(saved?.sx, saved?.sy, saved?.sz);
   if (saved) w.data.set(saved.data);
@@ -1019,50 +1483,171 @@ function startWorld(m, saved) {
   P.fly = false;
   P.pitch = -0.2;
   P.yaw = Math.PI / 4;
+  P.vel.set(0, 0, 0);
   if (saved?.player) {
     const s = saved.player;
     P.pos.set(s.x, s.y, s.z);
     P.yaw = s.yaw;
     P.pitch = s.pitch;
     P.fly = !!s.fly;
-    P.vel.set(0, 0, 0);
   } else spawn();
   $("tFly").classList.toggle("active", P.fly);
   $("worldName").textContent = m.name;
-  changed = !saved;
+  changed = false;
   lastSave = performance.now();
-  if (!saved) doSave(false);
+  if (fresh) doSave(false);
   play();
 }
-function renderSaves() {
-  const list = listWorlds(), box = $("saves");
+function joinNet(code, host, name) {
+  room2 = { code, host, name };
+  enterRoom(code, {
+    onEdit: (e) => setBlock(e.x, e.y, e.z, e.b, true),
+    onPlayer: (id, d) => {
+      others.upsert(id, d);
+      renderRoomChip();
+    },
+    onLeave: (id) => {
+      others.remove(id);
+      renderRoomChip();
+    }
+  });
+  lastPose = 0;
+  lastSent = "";
+  renderRoomChip();
+}
+function leaveNet() {
+  leaveRoom();
+  others.clear();
+  room2 = null;
+  renderRoomChip();
+}
+function renderRoomChip() {
+  const c = $("roomChip");
+  c.hidden = !room2;
+  if (room2) c.textContent = `👥 ${room2.code} · ${others.count + 1}명`;
+}
+var roomLink = (code) => `${location.origin}${location.pathname}?room=${code}`;
+function renderRoomBox() {
+  $("roomBox").hidden = !enabled();
+  $("roomOpen").hidden = !!room2;
+  $("roomInfo").hidden = !room2;
+  if (room2) {
+    $("roomCode").textContent = room2.code;
+    $("roomHint").textContent = room2.host ? "친구에게 코드나 링크를 보내 주세요." : `'${room2.name}' 방에서 같이 짓는 중이에요.`;
+  }
+}
+async function ensureUser() {
+  if (!currentUser()) await loginGuest();
+}
+$("btnOpenRoom").onclick = () => busy(async () => {
+  $("btnOpenRoom").disabled = true;
+  try {
+    await ensureUser();
+    const code = await createRoom(meta.name, serialize(world, null));
+    joinNet(code, true, meta.name);
+    renderRoomBox();
+    toast("방을 열었어요! 코드: " + code);
+  } finally {
+    $("btnOpenRoom").disabled = false;
+  }
+});
+$("btnCopyRoom").onclick = async () => {
+  const link = roomLink(room2.code);
+  try {
+    await navigator.clipboard.writeText(link);
+    toast("링크를 복사했어요 🔗");
+  } catch {
+    prompt("이 링크를 복사해서 친구에게 보내 주세요", link);
+  }
+};
+$("joinForm").onsubmit = (e) => {
+  e.preventDefault();
+  const code = $("codeInput").value.trim().toUpperCase(), nick = $("joinNick").value.trim();
+  const err = $("joinErr");
+  err.textContent = "";
+  if (code.length !== 5) {
+    err.textContent = "방 코드 5글자를 입력해 주세요.";
+    return;
+  }
+  busy(async () => {
+    $("joinSubmit").disabled = true;
+    try {
+      await ensureUser();
+      if (nick) setNick(nick);
+      const data = await fetchRoom(code);
+      if (!data) {
+        err.textContent = "그 코드의 방이 없어요. 코드를 다시 확인해 주세요.";
+        return;
+      }
+      history.replaceState(null, "", location.pathname);
+      startWorld({ id: newId(), name: data.name + " (같이 짓기)", where: "cloud" }, deserialize(data), { fresh: false });
+      spawn();
+      joinNet(code, false, data.name);
+      toast(`'${data.name}' 방에 들어왔어요!`);
+    } finally {
+      $("joinSubmit").disabled = false;
+    }
+  });
+};
+var lastPose = 0;
+var lastSent = "";
+var lastSentAt = 0;
+function sendPose2(now) {
+  if (!room2 || now - lastPose < 100) return;
+  lastPose = now;
+  const f = (v) => Math.round(v * 100) / 100;
+  const p = { n: nickname(), c: colorFor(myId()), x: f(P.pos.x), y: f(P.pos.y), z: f(P.pos.z), r: f(P.yaw), p: f(P.pitch) };
+  const key = JSON.stringify(p);
+  if (key === lastSent && now - lastSentAt < 3e3) return;
+  lastSent = key;
+  lastSentAt = now;
+  sendPose(p);
+}
+async function renderSaves() {
+  const local = listWorlds();
+  let cloud = [];
+  if (currentUser()) cloud = await busy(listCloud) || [];
+  const list = [...cloud, ...local].sort((a, b) => b.updated - a.updated);
+  const box = $("saves");
   box.innerHTML = "";
   $("savesWrap").hidden = !list.length;
   for (const w of list) {
     const card = document.createElement("div");
     card.className = "save";
     const date = new Date(w.updated).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-    card.innerHTML = `<img alt="" src="${w.thumb || ""}"><div class="info"><b></b><small>${date}</small></div>
+    card.innerHTML = `<img alt="" src="${w.thumb || ""}"><div class="info"><b></b><small>${w.where === "cloud" ? "☁ 클라우드" : "💻 이 기기"} · ${date}</small></div>
       <button class="btn small" data-act="load">이어하기</button><button class="btn small ghost" data-act="del" aria-label="삭제">🗑</button>`;
     card.querySelector("b").textContent = w.name;
-    card.querySelector("[data-act=load]").onclick = () => {
-      const saved = loadWorld(w.id);
-      if (saved) startWorld({ ...w }, saved);
+    card.querySelector("[data-act=load]").onclick = () => busy(async () => {
+      const saved = w.where === "cloud" ? deserialize(await loadCloud(w.id)) : loadWorld(w.id);
+      if (saved) startWorld({ id: w.id, name: w.name, type: w.type, where: w.where }, saved);
       else toast("월드를 불러오지 못했어요.");
-    };
-    card.querySelector("[data-act=del]").onclick = () => {
-      if (confirm(`'${w.name}' 월드를 지울까요?`)) {
-        deleteWorld(w.id);
-        renderSaves();
-      }
-    };
+    });
+    card.querySelector("[data-act=del]").onclick = () => busy(async () => {
+      if (!confirm(`'${w.name}' 월드를 지울까요?`)) return;
+      if (w.where === "cloud") await deleteCloud(w.id);
+      else deleteWorld(w.id);
+      renderSaves();
+    });
     box.appendChild(card);
   }
 }
+function renderAccount() {
+  const on = enabled(), u = currentUser();
+  $("account").hidden = !on;
+  $("btnJoin").hidden = !on;
+  if (!on) return;
+  $("accountText").textContent = u ? `👤 ${nickname()}${u.isAnonymous ? " (게스트)" : ""} · 월드가 클라우드에 저장돼요` : "로그인하면 어느 기기에서든 내 월드를 이어서 할 수 있어요";
+  $("btnLogin").hidden = !!u;
+  $("btnLogout").hidden = !u;
+  $("saveFoot").textContent = u ? "새 월드는 클라우드(내 계정)에 저장돼요" : "작업한 월드는 이 브라우저에 자동 저장돼요";
+}
 function toTitle() {
   if (document.pointerLockElement) document.exitPointerLock();
+  leaveNet();
   mode = "title";
   show("title");
+  renderAccount();
   renderSaves();
   setWorld(demoWorld);
 }
@@ -1075,20 +1660,64 @@ $("newForm").onsubmit = (e) => {
   e.preventDefault();
   const name = $("worldNameInput").value.trim() || "이름 없는 월드";
   const type = new FormData(e.target).get("type");
-  startWorld({ id: Date.now().toString(36), name, type, seed: Math.floor(Math.random() * 1e9) });
+  startWorld({ id: newId(), name, type, seed: Math.floor(Math.random() * 1e9), where: currentUser() ? "cloud" : "local" });
 };
+$("btnJoin").onclick = () => openJoin("");
+function openJoin(code) {
+  $("codeInput").value = code;
+  $("joinNick").value = nickname();
+  $("joinErr").textContent = "";
+  show("join");
+}
+$("btnCancelJoin").onclick = () => show("title");
+$("btnLogin").onclick = () => {
+  $("loginErr").textContent = "";
+  show("login");
+};
+$("btnCancelLogin").onclick = () => show("title");
+$("btnLogout").onclick = () => busy(async () => {
+  await logout();
+  toast("로그아웃했어요");
+});
+async function authDo(fn) {
+  const err = $("loginErr");
+  err.textContent = "";
+  const btns = document.querySelectorAll("#loginForm button");
+  btns.forEach((b) => b.disabled = true);
+  try {
+    await fn();
+    const nick = $("nickInput").value.trim();
+    if (nick) setNick(nick);
+    show("title");
+    renderAccount();
+    renderSaves();
+    toast(`${nickname()}님, 환영해요!`);
+  } catch (e) {
+    err.textContent = errMsg(e);
+  }
+  btns.forEach((b) => b.disabled = false);
+}
+var email = () => $("emailInput").value.trim();
+var pw = () => $("pwInput").value;
+$("loginForm").onsubmit = (e) => {
+  e.preventDefault();
+  authDo(() => loginEmail(email(), pw()));
+};
+$("btnSignup").onclick = () => authDo(() => signupEmail(email(), pw(), $("nickInput").value.trim()));
+$("btnGoogle").onclick = () => authDo(loginGoogle);
+$("btnGuest").onclick = () => authDo(loginGuest);
 $("btnResume").onclick = play;
 $("btnSave").onclick = () => doSave(true);
 $("btnSavePause").onclick = () => doSave(true);
 $("btnMenu").onclick = () => {
   if (mode === "play") pause();
 };
-$("btnTitle").onclick = () => {
-  if (changed) doSave(false);
+$("btnTitle").onclick = async () => {
+  if (changed && canAutoSave()) await doSave(false);
   toTitle();
 };
 addEventListener("visibilitychange", () => {
-  if (document.hidden && mode !== "title" && changed) doSave(false);
+  if (document.hidden && mode !== "title" && changed && canAutoSave()) doSave(false);
 });
 var demoWorld = new World();
 demoWorld.generate(20251124, "nature");
@@ -1103,8 +1732,10 @@ function frame(now) {
   } else {
     if (mode === "play") {
       updatePlayer(dt);
-      if (changed && now - lastSave > 6e4) doSave(false);
+      if (changed && canAutoSave() && now - lastSave > 6e4) doSave(false);
     }
+    sendPose2(now);
+    others.update(dt);
     camera.position.set(P.pos.x, P.pos.y + EYE, P.pos.z);
     camera.rotation.set(P.pitch, P.yaw, 0);
     target = mode === "play" ? raycast() : null;
@@ -1117,10 +1748,26 @@ function frame(now) {
 }
 toTitle();
 requestAnimationFrame(frame);
+init().then((ok) => {
+  if (!ok) return;
+  onUser(() => {
+    if (mode === "title") {
+      renderAccount();
+      renderSaves();
+    }
+  });
+  const code = new URLSearchParams(location.search).get("room");
+  if (code && mode === "title") openJoin(code.toUpperCase());
+}).catch((e) => {
+  console.warn("온라인 기능을 켜지 못했어요", e);
+  toast("온라인 기능에 연결하지 못했어요. 혼자 하기는 그대로 돼요.");
+});
 window.nemo = { get world() {
   return world;
-}, P, setBlock, startWorld, doSave, get mode() {
+}, P, setBlock, startWorld, doSave, net: net_exports, others, get mode() {
   return mode;
+}, get room() {
+  return room2;
 } };
 </script>
 </body>
