@@ -232,6 +232,49 @@ body.touch #blockName { bottom: calc(max(10px, env(safe-area-inset-bottom)) + va
   body.touch .topbar .btn.small, body.touch .chip { font-size: .8rem; }
   body.touch #hearts { top: calc(max(6px, env(safe-area-inset-top)) + 36px); font-size: 1rem; }
 }
+
+/* ---------- 제작 · 시간 · PvP · 캐릭터 ---------- */
+.surv-only { display: none; }
+body.surv .surv-only { display: inline-block; }
+.timebtns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; }
+.timebtns .btn { padding: .4em .2em; font-size: .85rem; }
+.pvp { margin-top: 10px; padding-top: 10px; border-top: 2px dashed rgba(0,0,0,.12); }
+.pvp label { display: inline-flex; gap: 6px; align-items: center; font-size: 1rem; cursor: pointer; }
+.pvp input { width: 18px; height: 18px; accent-color: #e8615e; }
+.pvp small { display: block; color: var(--muted); margin-top: 4px; }
+.card.wide-card { width: min(100%, 600px); }
+.craft-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.craft-head h2 { margin: 0; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.tab { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; font: inherit; font-size: .9rem; padding: 6px 10px;
+  border: 2px solid var(--ink); border-radius: 10px; background: #fff; cursor: pointer; color: var(--ink); }
+.tab img { width: 22px; height: 22px; }
+.tab.on { background: var(--grass); color: #fff; }
+.tab.far { opacity: .55; }
+.note-line { font-size: .88rem; color: #3f7f24; margin: 8px 0; }
+.note-line.lock { color: #a0522d; }
+.recipes { display: grid; gap: 8px; max-height: min(52dvh, 460px); overflow-y: auto; padding-right: 2px; }
+.recipe { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; background: var(--paper-2); border-radius: 10px; padding: 8px; }
+.recipe .out { width: 44px; height: 44px; }
+.recipe b { font-weight: 400; font-size: 1rem; }
+.ings { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; }
+.ing { display: inline-flex; align-items: center; gap: 3px; font-size: .8rem; color: #3f7f24; }
+.ing img { width: 18px; height: 18px; }
+.ing.lack { color: #c0392b; }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: 0 3px 0 var(--ink); }
+.slot .dur { position: absolute; left: 5px; right: 5px; bottom: 3px; height: 4px; background: rgba(0,0,0,.5); border-radius: 2px; overflow: hidden; }
+.slot .dur i { display: block; height: 100%; background: #6fdc6f; }
+#hotbar .empty { margin: 0; padding: 10px 14px; color: #fff; font-size: .85rem; white-space: nowrap; }
+.avatar-pv { display: grid; justify-items: center; gap: 0; margin: 4px auto 10px; }
+.avatar-pv i { display: block; border: 3px solid var(--ink); }
+#pvHead { width: 46px; height: 46px; border-radius: 6px; background: #fbe3c8;
+  background-image: radial-gradient(circle at 32% 48%, #2a2118 3px, transparent 4px), radial-gradient(circle at 68% 48%, #2a2118 3px, transparent 4px); }
+#pvShirt { width: 56px; height: 44px; border-radius: 4px; margin-top: -3px; }
+.avatar-pv .legs { width: 44px; height: 40px; background: #5a4a3a; margin-top: -3px; border-radius: 0 0 4px 4px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 6px; }
+.sw { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--ink); cursor: pointer; }
+.sw.on { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--grass); }
+@media (max-width: 520px) { .types { grid-template-columns: 1fr 1fr; } .recipe { grid-template-columns: 36px 1fr auto; } .recipe .out { width: 36px; height: 36px; } }
 </style>
 <script>
 // ▼ Firebase 설정 (로그인 · 클라우드 저장 · 같이 짓기). 비워 두면 혼자 하기 + 이 기기 저장만 됩니다.
@@ -262,6 +305,7 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
     <span id="worldName" class="chip"></span>
     <span id="roomChip" class="chip room" hidden></span>
     <span id="clock" class="chip clock" hidden>☀ 낮</span>
+    <button id="btnCraft" class="btn small surv-only">🛠<span class="lbl"> 만들기</span></button>
     <button id="btnSave" class="btn small">💾<span class="lbl"> 저장</span></button>
     <button id="btnMenu" class="btn small" aria-label="메뉴">☰</button>
   </div>
@@ -292,6 +336,7 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
     </div>
     <button id="btnNew" class="btn primary wide">＋ 새 월드 만들기</button>
     <button id="btnJoin" class="btn wide" hidden>👥 친구 방 참가하기</button>
+    <button id="btnSkin" class="btn wide">🎨 내 캐릭터 꾸미기</button>
     <div id="savesWrap" hidden>
       <h2>내 월드</h2>
       <div id="saves"></div>
@@ -302,7 +347,7 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
         <div><b>💻 PC</b><br>WASD 이동, 마우스로 둘러보기<br>좌클릭 부수기 · 우클릭 놓기<br>Space 점프 · F 비행 · Shift 내려가기<br>휠·숫자키로 블록 고르기</div>
         <div><b>📱 폰</b><br>왼쪽 조이스틱으로 이동<br>화면을 끌어서 둘러보기<br>⛏ 부수기 · 🧱 놓기 (꾹 누르면 연속)<br>⬆ 점프 · ✈ 비행</div>
       </div>
-      <p class="surv-help"><b>⚔ 서바이벌</b> 블록을 꾹 눌러 캐면 가방에 모여요. 놓을 때는 가방에서 하나씩 써요. 밤이 되면 '그림자 네모'가 나타나니 부수기(⛏/좌클릭)로 물리치세요. 높은 곳에서 떨어지면 다쳐요!</p>
+      <p class="surv-help"><b>⚔ 서바이벌</b> 블록을 꾹 눌러 캐면 가방에 모여요. <b>🛠 만들기</b>(PC는 E키)에서 통나무 → 판자 → 작업대 → 도구 순서로 만들어 보세요. 화로·용광로로 광석을 녹이고, 모루에서 철·강철·보석 도구를 만들고 고쳐요. 곡괭이는 돌과 광석, 도끼는 나무를 빨리 캐요. 음식은 놓기(🧱/우클릭)로 먹어요. 밤에는 '그림자 네모'를 조심하세요!</p>
     </details>
     <p id="saveFoot" class="foot">작업한 월드는 이 브라우저에 자동 저장돼요</p>
     <div class="site">
@@ -323,8 +368,10 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
     <div class="types">
       <label><input type="radio" name="type" value="nature" checked><span>🌳 자연<small>언덕과 나무가 있는 섬</small></span></label>
       <label><input type="radio" name="type" value="flat"><span>🟩 평지<small>건축하기 좋은 넓은 땅</small></span></label>
-      <label><input type="radio" name="type" value="city"><span>🏙 작은 도시<small>도로·빌딩·공원·분수</small></span></label>
-      <label><input type="radio" name="type" value="village"><span>🌾 농촌<small>밭·나무 집·건초 더미</small></span></label>
+      <label><input type="radio" name="type" value="city"><span>🏙 작은 도시<small>빌딩·아파트·상점·학교·공원</small></span></label>
+      <label><input type="radio" name="type" value="village"><span>🌾 농촌<small>하천·다리·밭·헛간·논</small></span></label>
+      <label><input type="radio" name="type" value="mine"><span>⛏ 광산<small>산·갱도·동굴·광석·광부 캠프</small></span></label>
+      <label><input type="radio" name="type" value="harbor"><span>⚓ 항구<small>바다·부두·배·등대·크레인</small></span></label>
     </div>
     <p class="label">모드</p>
     <div class="types">
@@ -341,6 +388,13 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
   <div class="card narrow">
     <h2>잠깐 멈춤</h2>
     <button id="btnResume" class="btn primary wide">계속하기</button>
+    <p class="label">시간 바꾸기</p>
+    <div class="timebtns">
+      <button type="button" class="btn small" data-time="morning">🌅 아침</button>
+      <button type="button" class="btn small" data-time="day">☀ 낮</button>
+      <button type="button" class="btn small" data-time="evening">🌇 저녁</button>
+      <button type="button" class="btn small" data-time="night">🌙 밤</button>
+    </div>
     <div id="roomBox" class="roombox" hidden>
       <div id="roomOpen"><button id="btnOpenRoom" class="btn wide">👥 친구와 같이 짓기 (방 열기)</button></div>
       <div id="roomInfo" hidden>
@@ -348,10 +402,36 @@ window.NEMO_FIREBASE = window.NEMO_FIREBASE || {
         <div id="roomCode" class="code"></div>
         <p id="roomHint"></p>
         <button id="btnCopyRoom" class="btn small">🔗 초대 링크 복사</button>
+        <div id="pvpRow" class="pvp" hidden>
+          <label><input type="checkbox" id="pvpToggle"> ⚔ 서로 때리기 허용</label>
+          <small id="pvpNote"></small>
+        </div>
       </div>
     </div>
     <button id="btnSavePause" class="btn wide">💾 저장하기</button>
     <button id="btnTitle" class="btn ghost wide">처음 화면으로</button>
+  </div>
+</section>
+
+<!-- 서바이벌: 만들기 -->
+<section id="craft" class="overlay" hidden>
+  <div class="card wide-card">
+    <div class="craft-head"><h2>🛠 만들기</h2><button id="btnCraftClose" type="button" class="btn small">닫기 ✕</button></div>
+    <div id="craftTabs" class="tabs"></div>
+    <p id="craftNote" class="note-line"></p>
+    <div id="craftList" class="recipes"></div>
+    <p class="foot">도구는 아래 칸에서 골라 들면 써져요 · 쓸수록 닳고, 모루에서 고칠 수 있어요</p>
+  </div>
+</section>
+
+<!-- 내 캐릭터 꾸미기 -->
+<section id="skin" class="overlay" hidden>
+  <div class="card narrow center">
+    <h2>🎨 내 캐릭터</h2>
+    <div class="avatar-pv"><i id="pvHead"></i><i id="pvShirt"></i><i class="legs"></i></div>
+    <p class="label">옷 색</p><div id="shirtSw" class="swatches"></div>
+    <p class="label">피부색</p><div id="faceSw" class="swatches"></div>
+    <button id="btnSkinDone" class="btn primary wide">완료</button>
   </div>
 </section>
 
@@ -444,6 +524,15 @@ var WATER = 21;
 var FLOWER = 22;
 var ROOF = 23;
 var PUMPKIN = 24;
+var BENCH = 25;
+var FURNACE = 26;
+var BLAST = 27;
+var ANVIL = 28;
+var COAL = 29;
+var IRON = 30;
+var GOLD = 31;
+var GEM = 32;
+var LANTERN = 33;
 var pick = (rnd, arr) => arr[Math.floor(rnd() * arr.length)];
 var ri = (rnd, a, b) => a + Math.floor(rnd() * (b - a + 1));
 function box(w, x0, y0, z0, x1, y1, z1, id) {
@@ -458,9 +547,9 @@ function smallTree(w, x, y, z) {
   w.set(x, y + 5, z, BUSH);
   for (let k = 1; k <= 3; k++) w.set(x, y + k, z, LOG);
 }
-function lamp(w, x, y, z) {
-  for (let k = 1; k <= 4; k++) w.set(x, y + k, z, WHITE);
-  w.set(x, y + 5, z, YELLOW);
+function lamp(w, x, y, z, pole = WHITE) {
+  for (let k = 1; k <= 4; k++) w.set(x, y + k, z, pole);
+  w.set(x, y + 5, z, LANTERN);
 }
 function car(w, x, y, z, alongX, color) {
   const [dx, dz] = alongX ? [1, 0] : [0, 1];
@@ -514,6 +603,41 @@ function building(w, rnd, b) {
     else for (let x = x0 + 2; x <= x1 - 2; x++) for (let z = z0 + 2; z <= z1 - 2; z++) w.set(x, top + 1, z, (x + z) % 3 ? BUSH : FLOWER);
   }
   return top;
+}
+function gableHouse(w, rnd, hx, hz, wd, dp, door, wall, roof, base) {
+  const x1 = hx + wd - 1, z1 = hz + dp - 1, top = base + 4;
+  for (let x = hx; x <= x1; x++) for (let z = hz; z <= z1; z++) {
+    const ex = x === hx || x === x1, ez = z === hz || z === z1;
+    w.set(x, base, z, PLANKS);
+    for (let y = base + 1; y <= top; y++) {
+      if (!ex && !ez) {
+        w.set(x, y, z, 0);
+        continue;
+      }
+      const corner = ex && ez, along = ex ? z : x;
+      w.set(x, y, z, corner || y === top ? LOG : y === base + 2 && along % 3 === 1 ? GLASS : wall);
+    }
+  }
+  for (let k = 0; ; k++) {
+    const za = hz - 1 + k, zb = z1 + 1 - k, y = top + 1 + k;
+    if (za > zb) break;
+    for (let x = hx - 1; x <= x1 + 1; x++) {
+      w.set(x, y, za, roof);
+      w.set(x, y, zb, roof);
+    }
+    for (let z = za + 1; z < zb; z++) {
+      w.set(hx, y, z, wall);
+      w.set(x1, y, z, wall);
+    }
+    if (za === zb || za + 1 === zb) break;
+  }
+  const cx = x1 - 1;
+  for (let y = top + 1; y <= top + Math.ceil(dp / 2) + 2; y++) w.set(cx, y, hz + 1, BRICK);
+  const mx = hx + x1 >> 1, dz = door === "z0" ? hz : z1, out = door === "z0" ? -1 : 1;
+  w.set(mx, base + 1, dz, 0);
+  w.set(mx, base + 2, dz, 0);
+  for (let x = hx - 1; x <= x1 + 1; x++) if (x !== mx && x % 2 === 0) w.set(x, base + 1, dz + out * 2, LOG);
+  for (let x = hx; x <= x1; x++) if (x !== mx && rnd() < 0.6) w.set(x, base + 1, dz + out, FLOWER);
 }
 function genCity(w, rnd) {
   const G = 3, { sx, sz } = w, P2 = 24, RW = 4;
@@ -743,39 +867,7 @@ function genVillage(w, rnd, noise) {
   const house = (hx, hz, wd, dp, door, wall, roof) => {
     const base = ground(hx + (wd >> 1), hz + (dp >> 1));
     flatten(w, hx - 2, hz - 2, hx + wd + 1, hz + dp + 1, base);
-    const x1 = hx + wd - 1, z1 = hz + dp - 1, top = base + 4;
-    for (let x = hx; x <= x1; x++) for (let z = hz; z <= z1; z++) {
-      const ex = x === hx || x === x1, ez = z === hz || z === z1;
-      w.set(x, base, z, PLANKS);
-      for (let y = base + 1; y <= top; y++) {
-        if (!ex && !ez) {
-          w.set(x, y, z, 0);
-          continue;
-        }
-        const corner = ex && ez, along = ex ? z : x;
-        w.set(x, y, z, corner || y === top ? LOG : y === base + 2 && along % 3 === 1 ? GLASS : wall);
-      }
-    }
-    for (let k = 0; ; k++) {
-      const za = hz - 1 + k, zb = z1 + 1 - k, y = top + 1 + k;
-      if (za > zb) break;
-      for (let x = hx - 1; x <= x1 + 1; x++) {
-        w.set(x, y, za, roof);
-        w.set(x, y, zb, roof);
-      }
-      for (let z = za + 1; z < zb; z++) {
-        w.set(hx, y, z, wall);
-        w.set(x1, y, z, wall);
-      }
-      if (za === zb || za + 1 === zb) break;
-    }
-    const cx = x1 - 1;
-    for (let y = top + 1; y <= top + Math.ceil(dp / 2) + 2; y++) w.set(cx, y, hz + 1, BRICK);
-    const mx = hx + x1 >> 1, dz = door === "z0" ? hz : z1, out = door === "z0" ? -1 : 1;
-    w.set(mx, base + 1, dz, 0);
-    w.set(mx, base + 2, dz, 0);
-    for (let x = hx - 1; x <= x1 + 1; x++) if (x !== mx && x % 2 === 0) w.set(x, base + 1, dz + out * 2, LOG);
-    for (let x = hx; x <= x1; x++) if (x !== mx && rnd() < 0.6) w.set(x, base + 1, dz + out, FLOWER);
+    gableHouse(w, rnd, hx, hz, wd, dp, door, wall, roof, base);
     reserve(hx - 3, hz - 3, hx + wd + 2, hz + dp + 2);
   };
   const walls = [PLANKS, WHITE, PLANKS, BRICK], roofs = [ROOF, RED, ROOF, BLUE];
@@ -868,6 +960,250 @@ function genVillage(w, rnd, noise) {
     } else if (rnd() < 0.5) w.set(x, y + 1, z, FLOWER);
   }
 }
+function genMine(w, rnd, noise) {
+  const { sx, sz } = w, H0 = 12, CX = 48, CZ = 48;
+  const hAt = (x, z) => {
+    const m = Math.min(1, Math.max(0, (Math.hypot(x - CX, z - CZ) - 15) / 30));
+    return H0 + Math.round(m * (12 + (noise(x / 20, z / 20) * 0.7 + noise(x / 7 + 30, z / 7) * 0.3) * 16));
+  };
+  for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
+    const h = hAt(x, z), rocky = h > 24 + noise(x / 5, z / 5) * 4;
+    for (let y = 0; y <= h; y++) w.set(x, y, z, y === h ? rocky ? STONE : GRASS : y > h - 3 && !rocky ? DIRT : STONE);
+  }
+  w.ores(rnd, 34, 5);
+  for (let i = 0; i < 18; i++) {
+    let x = rnd() * sx, z = rnd() * sz, y = 4 + rnd() * 14, a = rnd() * 6.28, b = 0;
+    if (Math.hypot(x - CX, z - CZ) < 20) continue;
+    for (let st = 0; st < 70; st++) {
+      const r2 = 1.4 + rnd() * 1.1;
+      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) for (let dz = -2; dz <= 2; dz++)
+        if (dx * dx + dy * dy + dz * dz <= r2 * r2 && y + dy >= 2) w.set(Math.floor(x + dx), Math.floor(y + dy), Math.floor(z + dz), 0);
+      if (st % 14 === 7) {
+        const fx = Math.floor(x), fz = Math.floor(z);
+        let fy2 = Math.floor(y);
+        while (fy2 > 1 && !w.get(fx, fy2 - 1, fz)) fy2--;
+        if (w.get(fx, fy2 - 1, fz)) w.set(fx, fy2, fz, LANTERN);
+      }
+      a += (rnd() - 0.5) * 0.8;
+      b = Math.max(-0.4, Math.min(0.4, b + (rnd() - 0.5) * 0.3));
+      x += Math.cos(a);
+      z += Math.sin(a);
+      y = Math.max(3, Math.min(22, y + b));
+    }
+  }
+  for (let x = CX - 15; x <= CX + 15; x++) for (let z = CZ - 15; z <= CZ + 15; z++) {
+    if (Math.hypot(x - CX, z - CZ) > 15) continue;
+    flatten(w, x, z, x, z, H0, Math.abs(z - CZ) <= 1 || Math.abs(x - CX) <= 1 ? DIRT : GRASS);
+  }
+  const ores = [COAL, COAL, IRON, IRON, GOLD, GEM];
+  const tunnel = (x0, z0, len, dx, dz, floor) => {
+    for (let i = 0; i < len; i++) {
+      const x = x0 + dx * i, z = z0 + dz * i;
+      for (let s = -2; s <= 2; s++) {
+        const tx = x + (dz ? s : 0), tz = z + (dx ? s : 0);
+        w.set(tx, floor, tz, s === 0 && i % 2 === 0 ? PLANKS : STONE);
+        for (let y = floor + 1; y <= floor + 4; y++) w.set(tx, y, tz, 0);
+        if (Math.abs(s) === 2 && rnd() < 0.2) w.set(tx + (dz ? Math.sign(s) : 0), floor + 1 + Math.floor(rnd() * 3), tz + (dx ? Math.sign(s) : 0), pick(rnd, ores));
+      }
+      if (i % 4 === 0) {
+        for (const s of [-2, 2]) for (let y = floor + 1; y <= floor + 3; y++) w.set(x + (dz ? s : 0), y, z + (dx ? s : 0), LOG);
+        for (let s = -2; s <= 2; s++) w.set(x + (dz ? s : 0), floor + 4, z + (dx ? s : 0), PLANKS);
+        if (i % 8 === 0) w.set(x, floor + 4, z, LANTERN);
+      }
+    }
+  };
+  tunnel(CX + 14, CZ, 34, 1, 0, H0);
+  tunnel(CX + 26, CZ - 3, 14, 0, -1, H0);
+  tunnel(CX + 36, CZ + 3, 14, 0, 1, H0);
+  for (let x = sx - 10; x <= sx - 3; x++) for (let z = CZ - 4; z <= CZ + 4; z++) for (let y = H0 + 1; y <= H0 + 5; y++) w.set(x, y, z, 0);
+  for (let x = sx - 11; x <= sx - 2; x++) for (let z = CZ - 5; z <= CZ + 5; z++) for (let y = H0; y <= H0 + 6; y++)
+    if (w.get(x, y, z) === STONE && rnd() < 0.18) w.set(x, y, z, pick(rnd, [GOLD, GEM, IRON]));
+  w.set(sx - 6, H0 + 1, CZ, LANTERN);
+  w.set(sx - 9, H0 + 1, CZ - 3, LANTERN);
+  let fy = H0;
+  for (let i = 0; i < 26; i++) {
+    const z = CZ + 12 + i;
+    if (fy > 4 && i > 0) fy--;
+    for (let x = CX - 1; x <= CX + 1; x++) {
+      w.set(x, fy, z, x === CX ? PLANKS : STONE);
+      for (let y = fy + 1; y <= fy + 4; y++) w.set(x, y, z, 0);
+    }
+    if (i % 5 === 0) {
+      w.set(CX - 2, fy + 2, z, LANTERN);
+      w.set(CX + 2, fy + 2, z, LANTERN);
+    }
+  }
+  for (let x = CX - 6; x <= CX + 6; x++) for (let z = CZ + 38; z <= CZ + 46; z++) {
+    w.set(x, 4, z, STONE);
+    for (let y = 5; y <= 9; y++) w.set(x, y, z, 0);
+  }
+  for (let x = CX - 7; x <= CX + 7; x++) for (let z = CZ + 37; z <= CZ + 47; z++) for (let y = 4; y <= 10; y++)
+    if (w.get(x, y, z) === STONE && rnd() < 0.22) w.set(x, y, z, pick(rnd, [GOLD, GEM, GEM, IRON]));
+  for (const [lx, lz] of [[CX - 5, CZ + 39], [CX + 5, CZ + 45], [CX, CZ + 46]]) w.set(lx, 5, lz, LANTERN);
+  for (const [ex, ez, ax] of [[CX + 14, CZ, "z"], [CX, CZ + 12, "x"]]) {
+    for (let s = -2; s <= 2; s += 4) for (let y = H0 + 1; y <= H0 + 4; y++) w.set(ex + (ax === "z" ? 0 : s), y, ez + (ax === "z" ? s : 0), LOG);
+    for (let s = -2; s <= 2; s++) w.set(ex + (ax === "z" ? 0 : s), H0 + 5, ez + (ax === "z" ? s : 0), PLANKS);
+    w.set(ex, H0 + 5, ez, YELLOW);
+  }
+  building(w, rnd, { x0: CX - 12, z0: CZ - 12, x1: CX - 5, z1: CZ - 6, base: H0, floors: 1, wall: PLANKS, trim: LOG, door: "z1", roofDeco: false });
+  building(w, rnd, { x0: CX + 3, z0: CZ - 12, x1: CX + 10, z1: CZ - 6, base: H0, floors: 1, wall: PLANKS, trim: LOG, door: "z1", roofDeco: false });
+  building(w, rnd, { x0: CX - 12, z0: CZ + 4, x1: CX - 5, z1: CZ + 10, base: H0, floors: 2, wall: LOG, trim: PLANKS, door: "x1", roofDeco: false });
+  {
+    const x0 = CX + 3, z0 = CZ + 4, x1 = CX + 10, z1 = CZ + 9;
+    for (const [px, pz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) for (let y = H0 + 1; y <= H0 + 3; y++) w.set(px, y, pz, LOG);
+    box(w, x0, H0 + 4, z0, x1, H0 + 4, z1, PLANKS);
+    box(w, x0 + 1, H0, z0 + 1, x1 - 1, H0, z1 - 1, TILES);
+    w.set(x0 + 2, H0 + 1, z0 + 2, BENCH);
+    w.set(x0 + 4, H0 + 1, z0 + 2, FURNACE);
+    w.set(x0 + 6, H0 + 1, z0 + 2, BLAST);
+    w.set(x0 + 4, H0 + 1, z1 - 1, ANVIL);
+    w.set(x0 + 1, H0 + 3, z0 + 1, LANTERN);
+  }
+  for (const [cx, cz, ore] of [[CX + 11, CZ - 3, COAL], [CX + 11, CZ + 3, IRON]]) {
+    box(w, cx, H0 + 1, cz, cx + 1, H0 + 1, cz, TILES);
+    w.set(cx, H0 + 2, cz, ore);
+    w.set(cx + 1, H0 + 2, cz, ore);
+  }
+  for (const [lx, lz] of [[CX - 3, CZ - 3], [CX + 3, CZ + 3], [CX - 3, CZ + 3], [CX + 3, CZ - 3]]) lamp(w, lx, H0, lz, LOG);
+  for (let i = 0; i < 120; i++) {
+    const x = 3 + Math.floor(rnd() * (sx - 6)), z = 3 + Math.floor(rnd() * (sz - 6)), y = w.topY(x, z);
+    if (w.get(x, y, z) === GRASS && Math.hypot(x - CX, z - CZ) > 16 && y < 26 && !w.get(x, y + 1, z)) w.tree(x, y, z, rnd);
+  }
+}
+function genHarbor(w, rnd) {
+  const { sx, sz } = w, G = 6, WL = 5;
+  const shoreX = (z) => 56 + Math.round(Math.sin(z / 13) * 3);
+  for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
+    const sh = shoreX(z);
+    if (x <= sh) {
+      for (let y = 0; y <= G; y++) w.set(x, y, z, y === G ? x > sh - 5 ? SAND : GRASS : y > G - 3 ? x > sh - 5 ? SAND : DIRT : STONE);
+    } else {
+      const floor = Math.max(1, 4 - Math.floor((x - sh) / 5));
+      for (let y = 0; y <= WL; y++) w.set(x, y, z, y < floor ? STONE : y === floor ? SAND : WATER);
+    }
+  }
+  for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
+    const sh = shoreX(z);
+    if (x > sh) continue;
+    if (x >= sh - 8 && x <= sh - 6) w.set(x, G, z, TILES);
+    else if (z >= 46 && z <= 49 && x < sh - 8 || x >= 30 && x <= 32) w.set(x, G, z, (x + z) % 8 === 0 && z === 47 ? YELLOW : ASPHALT);
+  }
+  for (let z = 4; z < sz; z += 8) {
+    lamp(w, shoreX(z) - 9, G, z);
+    if (z % 16 === 4) box(w, shoreX(z) - 5, G + 1, z + 2, shoreX(z) - 5, G + 1, z + 4, PLANKS);
+  }
+  const walls = [WHITE, PLANKS, PINK, BRICK, WHITE, BLUE], roofs = [ROOF, RED, BLUE, ROOF];
+  let k = 0;
+  for (const hx of [3, 12, 21]) for (const hz of [5, 17, 29]) gableHouse(w, rnd, hx, hz, 7, 6, "z1", walls[k % 6], roofs[k++ % 4], G);
+  building(w, rnd, { x0: 35, z0: 4, x1: 47, z1: 13, base: G, floors: 2, fh: 5, wall: BRICK, trim: WHITE, door: "z1", roofDeco: false });
+  building(w, rnd, { x0: 35, z0: 17, x1: 47, z1: 26, base: G, floors: 2, fh: 5, wall: TILES, trim: BLUE, door: "z1", roofDeco: false });
+  [[36, 31, RED], [41, 31, BLUE], [36, 38, YELLOW], [41, 38, PINK]].forEach(([x0, z0, col]) => {
+    for (const [px, pz] of [[x0, z0], [x0 + 3, z0], [x0, z0 + 3], [x0 + 3, z0 + 3]]) box(w, px, G + 1, pz, px, G + 3, pz, LOG);
+    for (let x = x0; x <= x0 + 3; x++) for (let z = z0; z <= z0 + 3; z++) w.set(x, G + 4, z, (x + z) % 2 ? col : WHITE);
+    box(w, x0 + 1, G + 1, z0 + 1, x0 + 2, G + 1, z0 + 2, PLANKS);
+    w.set(x0 + 1, G + 2, z0 + 1, BLUE);
+    w.set(x0 + 2, G + 2, z0 + 2, HAY);
+  });
+  building(w, rnd, { x0: 8, z0: 54, x1: 18, z1: 62, base: G, floors: 3, wall: WHITE, trim: BLUE, door: "z0" });
+  box(w, 19, G + 1, 58, 19, G + 17, 58, WHITE);
+  box(w, 20, G + 15, 58, 22, G + 16, 58, BLUE);
+  for (let x = 4; x <= 26; x++) for (let z = 68; z <= 90; z++) if (Math.hypot(x - 15, z - 79) < 4 && Math.hypot(x - 15, z - 79) > 2.5) w.set(x, G, z, SAND);
+  else if (rnd() < 0.05) w.set(x, G + 1, z, FLOWER);
+  box(w, 14, G, 78, 16, G, 80, WATER);
+  box(w, 15, G + 1, 79, 15, G + 2, 79, WHITE);
+  for (const [tx, tz] of [[6, 70], [24, 70], [6, 88], [24, 88], [10, 84], [20, 74]]) w.tree(tx, G, tz, rnd);
+  const ccol = [RED, BLUE, YELLOW, PURPLE, WHITE, PINK, 3];
+  for (let cx = 35; cx <= 47; cx += 3) for (let cz = 53; cz <= 88; cz += 7) {
+    const hgt = 1 + Math.floor(rnd() * 3);
+    for (let lv = 0; lv < hgt; lv++) {
+      const col = pick(rnd, ccol);
+      box(w, cx, G + 1 + lv * 2, cz, cx + 1, G + 2 + lv * 2, cz + 4, col);
+    }
+  }
+  const pier = (z0, width, len) => {
+    const sh = shoreX(z0 + 1);
+    for (let x = sh - 1; x <= sh + len; x++) for (let z = z0; z < z0 + width; z++) {
+      w.set(x, G, z, PLANKS);
+      if ((x - sh) % 4 === 0 && (z === z0 || z === z0 + width - 1)) for (let y = 1; y < G; y++) w.set(x, y, z, LOG);
+    }
+    lamp(w, sh + len, G, z0, LOG);
+    lamp(w, sh + len, G, z0 + width - 1, LOG);
+    return sh;
+  };
+  const boat = (x0, z0, len, hull, sail) => {
+    for (let i = 0; i < len; i++) {
+      const half = i >= len - 2 ? 0 : 1;
+      for (let dz = -half; dz <= half; dz++) {
+        w.set(x0 + i, WL - 1, z0 + dz, hull);
+        w.set(x0 + i, WL, z0 + dz, Math.abs(dz) === half || i === 0 ? hull : PLANKS);
+        if (Math.abs(dz) === half || i === 0 || i === len - 1) w.set(x0 + i, WL + 1, z0 + dz, hull);
+      }
+    }
+    const mx = x0 + (len >> 1) - 1;
+    for (let y = WL + 1; y <= WL + 7; y++) w.set(mx, y, z0, LOG);
+    if (sail) for (let y = WL + 2; y <= WL + 7; y++) for (let i = 1; i <= WL + 8 - y && i <= 3; i++) w.set(mx + i, y, z0, sail);
+  };
+  const sh1 = pier(19, 3, 20);
+  [[23, RED, WHITE], [27, BLUE, null], [16, YELLOW, WHITE]].forEach(([bz, hc, sc], i) => boat(sh1 + 4 + i * 5, bz, 6, hc, sc));
+  const sh3 = pier(75, 3, 18);
+  [[79, WHITE, WHITE], [72, PINK, WHITE], [83, PURPLE, YELLOW]].forEach(([bz, hc, sc], i) => boat(sh3 + 3 + i * 4, bz, 7, hc, sc));
+  const sh2 = pier(46, 5, 24);
+  {
+    const x0 = sh2 + 3, len = 28, z0 = 53, z1 = 59;
+    for (let i = 0; i < len; i++) {
+      const narrow = Math.max(0, i - (len - 5)), za = z0 + narrow, zb = z1 - narrow;
+      for (let z = za; z <= zb; z++) {
+        const side = z === za || z === zb || i === 0;
+        for (let y = 2; y <= WL + 2; y++) w.set(x0 + i, y, z, side ? y <= WL - 1 ? RED : y === WL + 2 ? WHITE : BLUE : y === WL + 2 ? PLANKS : y === 2 ? BLUE : 0);
+      }
+    }
+    box(w, x0 + 1, WL + 3, z0 + 1, x0 + 5, WL + 7, z1 - 1, WHITE);
+    for (let z = z0 + 2; z <= z1 - 2; z++) w.set(x0 + 5, WL + 6, z, GLASS);
+    box(w, x0 + 2, WL + 8, z0 + 3, x0 + 3, WL + 10, z0 + 4, RED);
+    for (let i = 8; i < len - 6; i += 5) for (const z of [z0 + 1, z0 + 4]) {
+      const hgt = 1 + Math.floor(rnd() * 2);
+      for (let lv = 0; lv < hgt; lv++) box(w, x0 + i, WL + 3 + lv * 2, z, x0 + i + 3, WL + 4 + lv * 2, z + 1, pick(rnd, ccol));
+    }
+  }
+  {
+    const cx0 = sh2 + 8, cx1 = sh2 + 13, top = G + 14;
+    for (const [px, pz] of [[cx0, 46], [cx1, 46], [cx0, 50], [cx1, 50]]) box(w, px, G + 1, pz, px, top, pz, YELLOW);
+    box(w, cx0, top, 46, cx1, top, 50, YELLOW);
+    box(w, cx0 + 2, top + 1, 40, cx0 + 3, top + 1, 62, YELLOW);
+    box(w, cx0 + 2, top + 2, 47, cx0 + 3, top + 3, 49, BLUE);
+    box(w, cx0 + 2, top - 6, 57, cx0 + 2, top, 57, WHITE);
+    w.set(cx0 + 2, top - 7, 57, TILES);
+  }
+  for (let x = shoreX(5); x <= 86; x++) for (let z = 4; z <= 6; z++) {
+    for (let y = 1; y <= G; y++) w.set(x, y, z, STONE);
+    if (z === 5 && x % 6 === 0) w.set(x, G + 1, z, LANTERN);
+  }
+  {
+    const lx = 88, lz = 5, top = G + 18;
+    for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) {
+      const d = Math.hypot(x, z);
+      if (d <= 3.2) for (let y = 1; y <= G; y++) w.set(lx + x, y, lz + z, STONE);
+      if (d <= 2.6) for (let y = G + 1; y <= top; y++) w.set(lx + x, y, lz + z, d > 1.6 ? Math.floor((y - G) / 3) % 2 ? WHITE : RED : 0);
+      if (d <= 2.6) {
+        w.set(lx + x, top + 1, lz + z, d > 1.6 ? GLASS : 0);
+        w.set(lx + x, top + 3, lz + z, RED);
+      }
+      if (d <= 1.6) w.set(lx + x, top + 4, lz + z, RED);
+    }
+    w.set(lx, top + 1, lz, LANTERN);
+    w.set(lx, top + 2, lz, LANTERN);
+    w.set(lx, G + 1, lz - 2, 0);
+    w.set(lx, G + 2, lz - 2, 0);
+  }
+  for (const [bx, bz, c] of [[80, 34, RED], [84, 66, YELLOW], [76, 90, RED], [90, 40, YELLOW]]) {
+    w.set(bx, WL, bz, c);
+    w.set(bx, WL + 1, bz, c);
+  }
+  for (let i = 0; i < 40; i++) {
+    const x = 2 + Math.floor(rnd() * 26), z = 40 + Math.floor(rnd() * 12);
+    if (w.get(x, G, z) === GRASS && !w.get(x, G + 1, z) && !w.get(x + 1, G + 1, z) && !w.get(x - 1, G + 1, z)) w.tree(x, G, z, rnd);
+  }
+}
 
 // ===== world.js =====
 var TILE = 32;
@@ -897,7 +1233,21 @@ var TILE_NAMES = [
   "water",
   "flower",
   "roof",
-  "pumpkin"
+  "pumpkin",
+  "bench_top",
+  "bench_side",
+  "furnace",
+  "furnace_top",
+  "blast",
+  "anvil",
+  "anvil_top",
+  "ore_coal",
+  "ore_iron",
+  "ore_gold",
+  "ore_gem",
+  "lantern",
+  "gold_block",
+  "gem_block"
 ];
 var T = Object.fromEntries(TILE_NAMES.map((n, i) => [n, i]));
 var BLOCKS = [
@@ -925,7 +1275,18 @@ var BLOCKS = [
   { name: "물", tiles: ["water"], pass: true },
   { name: "꽃", tiles: ["flower"], clear: true, pass: true },
   { name: "기와", tiles: ["roof"] },
-  { name: "호박", tiles: ["pumpkin"] }
+  { name: "호박", tiles: ["pumpkin"] },
+  { name: "작업대", tiles: ["bench_top", "bench_side", "planks"], station: "bench" },
+  { name: "화로", tiles: ["furnace_top", "furnace", "furnace_top"], station: "furnace" },
+  { name: "용광로", tiles: ["furnace_top", "blast", "furnace_top"], station: "blast" },
+  { name: "모루", tiles: ["anvil_top", "anvil", "anvil_top"], station: "anvil" },
+  { name: "석탄 광석", tiles: ["ore_coal"] },
+  { name: "철광석", tiles: ["ore_iron"] },
+  { name: "금광석", tiles: ["ore_gold"] },
+  { name: "보석 광석", tiles: ["ore_gem"] },
+  { name: "등불", tiles: ["lantern"], glow: true },
+  { name: "금 블록", tiles: ["gold_block"] },
+  { name: "보석 블록", tiles: ["gem_block"], glow: true }
 ];
 var faceTile = (id, f) => {
   const t = BLOCKS[id].tiles;
@@ -1140,6 +1501,103 @@ function drawAtlas() {
         for (let y = 0; y < 32; y += 6) for (let x = y / 6 % 2 ? 0 : 3; x < 34; x += 6) circle(x, y + 3, 3, "#64728e");
         bevel(0.5);
         break;
+      case "bench_top":
+        fill("#b8864f");
+        rr(2, 2, 28, 28, 3, "#e0b47a");
+        g.fillStyle = "#b8864f";
+        g.fillRect(15, 2, 2, 28);
+        g.fillRect(2, 15, 28, 2);
+        rr(5, 21, 13, 3, 1.5, "#7a5630");
+        rr(15, 17, 5, 10, 1.5, "#8e98a7");
+        circle(24, 8, 3.5, "#8e98a7");
+        circle(24, 8, 1.5, "#e0b47a");
+        bevel();
+        break;
+      case "bench_side":
+        fill("#c99a5e");
+        for (let y = 9; y < 32; y += 6) g.fillRect(0, y, 32, 1);
+        rr(0, 0, 32, 7, 0, "#8a5c3a");
+        rr(3, 7, 4, 25, 1, "#8a5c3a");
+        rr(25, 7, 4, 25, 1, "#8a5c3a");
+        bevel(0.6);
+        break;
+      case "furnace_top":
+        fill("#8e96a3");
+        for (const [x, y] of [[2, 2], [17, 2], [2, 17], [17, 17]]) rr(x, y, 13, 13, 3, "#a6aebb");
+        bevel(0.6);
+        break;
+      case "furnace":
+        fill("#8e96a3");
+        for (let r2 = 0; r2 < 4; r2++) for (let x = r2 % 2 ? -8 : 0; x < 32; x += 16) rr(x + 1, r2 * 8 + 1, 14, 6, 2, "#a6aebb");
+        rr(7, 13, 18, 16, 6, "#2b2b33");
+        circle(13, 24, 4, "#ff8a3c");
+        circle(19, 23, 4.5, "#ffb347");
+        circle(16, 21, 3, "#ffe27a");
+        bevel(0.6);
+        break;
+      case "blast":
+        fill("#5a5f6b");
+        for (let r2 = 0; r2 < 4; r2++) for (let x = r2 % 2 ? -8 : 0; x < 32; x += 16) rr(x + 1, r2 * 8 + 1, 14, 6, 2, "#717785");
+        rr(5, 12, 22, 16, 4, "#ff8a3c");
+        rr(8, 15, 16, 10, 3, "#ffd34d");
+        g.fillStyle = "#3b3f48";
+        for (const x of [9, 15, 21]) g.fillRect(x, 12, 2, 16);
+        bevel(0.6);
+        break;
+      case "anvil":
+        fill("#2f3440");
+        rr(3, 5, 26, 8, 3, "#7b8496");
+        rr(12, 13, 8, 8, 1, "#646c7c");
+        rr(6, 21, 20, 8, 2, "#7b8496");
+        rr(5, 6, 10, 2, 1, "#a3abbb");
+        bevel(0.5);
+        break;
+      case "anvil_top":
+        fill("#59606e");
+        rr(3, 3, 26, 26, 4, "#6f7788");
+        rr(6, 14, 20, 4, 2, "#8a93a5");
+        bevel(0.5);
+        break;
+      case "ore_coal":
+      case "ore_iron":
+      case "ore_gold":
+      case "ore_gem": {
+        fill("#a3adbb");
+        dots("#b6bfcb", 4, 3, 5);
+        dots("#8e98a7", 4, 1.2, 2.4);
+        const [c1, c2] = { ore_coal: ["#2b2b2e", "#4a4a50"], ore_iron: ["#d39a6c", "#eab48a"], ore_gold: ["#f2c230", "#ffe07a"], ore_gem: ["#37c6d0", "#9af2f5"] }[name];
+        for (const [x, y, r2] of [[8, 8, 3.6], [22, 10, 3], [13, 21, 3.8], [25, 24, 2.8], [5, 26, 2.4]]) {
+          circle(x, y, r2, c1);
+          circle(x - r2 / 3, y - r2 / 3, r2 / 2.6, c2);
+        }
+        if (name === "ore_gem") for (const [x, y] of [[9, 7], [23, 9]]) circle(x, y, 1, "#ffffff");
+        bevel();
+        break;
+      }
+      case "lantern":
+        fill("#4a3a2a");
+        {
+          const gr = g.createRadialGradient(16, 16, 2, 16, 16, 14);
+          gr.addColorStop(0, "#fff6c4");
+          gr.addColorStop(1, "#ffb84d");
+          g.fillStyle = gr;
+          g.beginPath();
+          g.roundRect(4, 4, 24, 24, 4);
+          g.fill();
+        }
+        g.fillStyle = "#4a3a2a";
+        g.fillRect(15, 4, 2, 24);
+        g.fillRect(4, 15, 24, 2);
+        bevel(0.5);
+        break;
+      case "gold_block":
+        candy("#f2c230", "#ffd95e");
+        circle(22, 21, 1.6, "#fff8d6");
+        break;
+      case "gem_block":
+        candy("#2fc3cb", "#72e3e8");
+        circle(22, 21, 1.6, "#ffffff");
+        break;
       case "pumpkin":
         fill("#f08a24");
         for (const x of [6, 14, 22]) rr(x, 0, 3, 32, 1.5, "#d46f14");
@@ -1163,6 +1621,8 @@ texture.magFilter = texture.minFilter = THREE.LinearFilter;
 texture.generateMipmaps = false;
 texture.colorSpace = THREE.SRGBColorSpace;
 var blockMaterial = new THREE.MeshBasicMaterial({ map: texture, vertexColors: true, alphaTest: 0.5 });
+var glowMaterial = new THREE.MeshBasicMaterial({ map: texture, vertexColors: true, alphaTest: 0.5 });
+var chunkMaterials = [blockMaterial, glowMaterial];
 function blockIcon(id, size = 64) {
   const c = document.createElement("canvas");
   c.width = c.height = size;
@@ -1240,7 +1700,13 @@ var World = class {
     }
     const noise = makeNoise(seed), rnd = mulberry32(seed + 99);
     if (type === "city") return genCity(this, rnd);
-    if (type === "village") return genVillage(this, rnd, noise);
+    if (type === "village") {
+      genVillage(this, rnd, noise);
+      this.ores(rnd, 6, 1);
+      return;
+    }
+    if (type === "mine") return genMine(this, rnd, noise);
+    if (type === "harbor") return genHarbor(this, rnd, noise);
     for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) {
       const n = noise(x / 18, z / 18) * 0.75 + noise(x / 6 + 50, z / 6) * 0.25;
       const h = Math.max(3, Math.min(this.sy - 10, Math.floor(5 + n * 10)));
@@ -1259,6 +1725,32 @@ var World = class {
       if (this.get(x, y, z) !== 1) continue;
       this.tree(x, y, z, rnd);
     }
+    this.ores(rnd, 8, 1);
+  }
+  // 돌 속에 광맥 심기 (깊을수록 귀한 광석)
+  ores(rnd, maxY, density = 1) {
+    const kinds = [[29, 1, 6, 1], [30, 0.6, 4, 0.8], [31, 0.25, 3, 0.5], [32, 0.12, 2, 0.35]];
+    const n = Math.floor(this.sx * this.sz / 60 * density);
+    for (let i = 0; i < n; i++) {
+      const r2 = rnd() * kinds.reduce((a, k) => a + k[1], 0);
+      let acc = 0, kind = kinds[0];
+      for (const k of kinds) {
+        acc += k[1];
+        if (r2 <= acc) {
+          kind = k;
+          break;
+        }
+      }
+      const [id, , size, hf] = kind;
+      let x = Math.floor(rnd() * this.sx), z = Math.floor(rnd() * this.sz), y = 1 + Math.floor(rnd() * Math.max(1, maxY * hf));
+      for (let k = 0; k < size; k++) {
+        if (this.get(x, y, z) === 3) this.set(x, y, z, id);
+        x += Math.floor(rnd() * 3) - 1;
+        y += Math.floor(rnd() * 3) - 1;
+        z += Math.floor(rnd() * 3) - 1;
+        if (y < 1) y = 1;
+      }
+    }
   }
   // 둥근 덤불 나무 (y = 나무가 설 땅의 높이)
   tree(x, y, z, rnd) {
@@ -1270,7 +1762,7 @@ var World = class {
     for (let k = 1; k <= th; k++) this.set(x, y + k, z, 5);
   }
   buildChunk(cx, cz) {
-    const pos = [], col = [], uv = [], index = [];
+    const pos = [], col = [], uv = [], index = [], glowIdx = [];
     const N = TILE_NAMES.length, e = 0.5 / TILE;
     for (let y = 0; y < this.sy; y++)
       for (let z = cz * CHUNK; z < Math.min((cz + 1) * CHUNK, this.sz); z++)
@@ -1294,17 +1786,19 @@ var World = class {
               const s2 = this.opaque(b[0] + o2[0], b[1] + o2[1], b[2] + o2[2]);
               const cr = this.opaque(b[0] + o1[0] + o2[0], b[1] + o1[1] + o2[1], b[2] + o1[2] + o2[2]);
               const ao = s1 && s2 ? 0 : 3 - (s1 + s2 + cr);
-              const k = toLinear(F.shade * AO[ao]);
+              const k = BLOCKS[id].glow ? 1 : toLinear(F.shade * AO[ao]);
               col.push(k, k, k);
             }
-            index.push(ndx, ndx + 1, ndx + 2, ndx + 2, ndx + 1, ndx + 3);
+            (BLOCKS[id].glow ? glowIdx : index).push(ndx, ndx + 1, ndx + 2, ndx + 2, ndx + 1, ndx + 3);
           }
         }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
     geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-    geo.setIndex(index);
+    geo.setIndex(index.concat(glowIdx));
+    geo.addGroup(0, index.length, 0);
+    geo.addGroup(index.length, glowIdx.length, 1);
     geo.computeBoundingSphere();
     return geo;
   }
@@ -1321,6 +1815,296 @@ function makeNoise(seed) {
     const a = hash(xi, zi), b = hash(xi + 1, zi), c = hash(xi, zi + 1), d = hash(xi + 1, zi + 1);
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
   };
+}
+
+// ===== craft.js =====
+var ITEMS = {
+  100: { name: "막대기", icon: "stick" },
+  101: { name: "석탄", icon: "coal" },
+  102: { name: "철 주괴", icon: "ingot", color: "#d5dbe3" },
+  103: { name: "금 주괴", icon: "ingot", color: "#f5c93a" },
+  104: { name: "보석", icon: "gem" },
+  105: { name: "강철 주괴", icon: "ingot", color: "#71809c" },
+  150: { name: "빵", icon: "bread", food: 6 },
+  151: { name: "호박죽", icon: "soup", food: 10 }
+};
+var TIERS = [["나무", "#c08a52", 60], ["돌", "#9aa4b1", 130], ["철", "#e3e8ee", 250], ["강철", "#6f7d99", 500], ["보석", "#3fd1d8", 900]];
+[["pick", "곡괭이", 110], ["axe", "도끼", 120], ["sword", "검", 130]].forEach(([type, tname, base]) => TIERS.forEach(([tier, color, dur], i) => {
+  ITEMS[base + i] = { name: `${tier} ${tname}`, icon: type, color, tool: { type, tier: i + 1, dur } };
+}));
+function josa(word, pair) {
+  const c = word.charCodeAt(word.length - 1), [a, b] = pair.split("/");
+  const has = c >= 44032 && c <= 55203 && (c - 44032) % 28 !== 0;
+  return word + (has ? a : b);
+}
+var itemName = (id) => (id < 100 ? BLOCKS[id]?.name : ITEMS[id]?.name) || "?";
+var isBlock = (id) => id > 0 && id < 100;
+var toolOf = (id) => ITEMS[id]?.tool || null;
+var maxDur = (id) => toolOf(id)?.dur || 0;
+var SPEED = [1, 2, 3, 5, 8, 11];
+var STONE_LIKE = /* @__PURE__ */ new Set([3, 4, 7, 8, 11, 12, 13, 14, 15, 16, 20, 26, 27, 28, 29, 30, 31, 32, 34, 35]);
+var WOOD_LIKE = /* @__PURE__ */ new Set([5, 6, 19, 24, 25]);
+var HARD = {
+  1: 0.6,
+  2: 0.5,
+  3: 1.6,
+  4: 1.6,
+  5: 1.1,
+  6: 1,
+  7: 1.6,
+  8: 0.4,
+  9: 0.5,
+  10: 0.25,
+  11: 0.8,
+  12: 0.8,
+  13: 0.8,
+  14: 0.8,
+  15: 0.8,
+  16: 0.8,
+  17: 0.5,
+  18: 0.1,
+  19: 0.5,
+  20: 1.6,
+  21: 0.2,
+  22: 0.1,
+  23: 1.2,
+  24: 0.8,
+  25: 1.2,
+  26: 2,
+  27: 2.5,
+  28: 3,
+  29: 2,
+  30: 2.4,
+  31: 2.8,
+  32: 3.2,
+  33: 0.4,
+  34: 2.4,
+  35: 2.4
+};
+var ORE_TIER = { 29: 1, 30: 2, 31: 3, 32: 3 };
+var DROPS = { 29: 101, 32: 104 };
+var dropOf = (id) => DROPS[id] ?? id;
+function mineSpeed(block, held2) {
+  const t = toolOf(held2);
+  if (!t) return 1;
+  if (t.type === "pick" && STONE_LIKE.has(block) || t.type === "axe" && WOOD_LIKE.has(block)) return SPEED[t.tier];
+  return 1;
+}
+function needTier(block) {
+  return ORE_TIER[block] || 0;
+}
+function canHarvest(block, held2) {
+  const need = ORE_TIER[block];
+  if (!need) return true;
+  const t = toolOf(held2);
+  return !!t && t.type === "pick" && t.tier >= need;
+}
+function attackDamage(held2) {
+  const t = toolOf(held2);
+  if (!t) return 2;
+  if (t.type === "sword") return [0, 3, 4, 6, 8, 10][t.tier];
+  if (t.type === "axe") return 2 + t.tier;
+  return 2;
+}
+var STATIONS = { hand: "맨손", bench: "작업대", furnace: "화로", blast: "용광로", anvil: "모루" };
+var STATION_BLOCK = { bench: 25, furnace: 26, blast: 27, anvil: 28 };
+var R = (st, out, n, ing) => ({ st, out, n, ing });
+var RECIPES = [
+  R("hand", 6, 4, [[5, 1]]),
+  R("hand", 100, 4, [[6, 2]]),
+  R("hand", 25, 1, [[6, 4]]),
+  // 작업대: 나무 · 돌 도구, 화로, 생활 블록
+  R("bench", 110, 1, [[6, 3], [100, 2]]),
+  R("bench", 120, 1, [[6, 3], [100, 2]]),
+  R("bench", 130, 1, [[6, 2], [100, 1]]),
+  R("bench", 111, 1, [[3, 3], [100, 2]]),
+  R("bench", 121, 1, [[3, 3], [100, 2]]),
+  R("bench", 131, 1, [[3, 2], [100, 1]]),
+  R("bench", 26, 1, [[3, 8]]),
+  R("bench", 4, 4, [[3, 4]]),
+  R("bench", 19, 1, [[18, 4]]),
+  R("bench", 150, 1, [[18, 3]]),
+  R("bench", 33, 2, [[101, 1], [100, 1], [8, 1]]),
+  R("bench", 27, 1, [[26, 1], [102, 5], [3, 3]]),
+  R("bench", 28, 1, [[102, 6], [3, 3]]),
+  // 화로: 녹이기 · 굽기 (석탄이 땔감)
+  R("furnace", 102, 1, [[30, 1], [101, 1]]),
+  R("furnace", 103, 1, [[31, 1], [101, 1]]),
+  R("furnace", 101, 1, [[5, 2]]),
+  R("furnace", 8, 2, [[9, 2], [101, 1]]),
+  R("furnace", 7, 2, [[2, 2], [101, 1]]),
+  R("furnace", 151, 1, [[24, 1], [6, 1]]),
+  // 용광로: 강철 + 광석을 더 많이 녹이기
+  R("blast", 105, 1, [[102, 2], [101, 2]]),
+  R("blast", 102, 3, [[30, 2], [101, 1]]),
+  R("blast", 103, 3, [[31, 2], [101, 1]]),
+  R("blast", 20, 4, [[3, 2], [101, 1]]),
+  // 모루: 철 · 강철 · 보석 도구, 귀한 블록
+  R("anvil", 112, 1, [[102, 3], [100, 2]]),
+  R("anvil", 122, 1, [[102, 3], [100, 2]]),
+  R("anvil", 132, 1, [[102, 2], [100, 1]]),
+  R("anvil", 113, 1, [[105, 3], [100, 2]]),
+  R("anvil", 123, 1, [[105, 3], [100, 2]]),
+  R("anvil", 133, 1, [[105, 2], [100, 1]]),
+  R("anvil", 114, 1, [[104, 3], [105, 1], [100, 2]]),
+  R("anvil", 124, 1, [[104, 3], [105, 1], [100, 2]]),
+  R("anvil", 134, 1, [[104, 2], [105, 1], [100, 1]]),
+  R("anvil", 34, 1, [[103, 4]]),
+  R("anvil", 35, 1, [[104, 4]])
+];
+var REPAIR_MAT = { 1: 6, 2: 3, 3: 102, 4: 105, 5: 104 };
+var cache = {};
+function itemIcon(id) {
+  if (cache[id]) return cache[id];
+  if (isBlock(id)) return cache[id] = blockIcon(id);
+  const it = ITEMS[id], c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d");
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  const stroke = (w, col, pts) => {
+    g.strokeStyle = col;
+    g.lineWidth = w;
+    g.beginPath();
+    pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+    g.stroke();
+  };
+  const handle = () => {
+    stroke(9, "#5a3d22", [[14, 52], [44, 22]]);
+    stroke(5, "#9c6b3c", [[14, 52], [44, 22]]);
+  };
+  const outline = "#2a2118";
+  switch (it?.icon) {
+    case "stick":
+      stroke(10, "#5a3d22", [[16, 50], [48, 14]]);
+      stroke(6, "#b07a45", [[16, 50], [48, 14]]);
+      break;
+    case "coal":
+      g.fillStyle = "#2b2b2e";
+      g.beginPath();
+      g.moveTo(14, 36);
+      g.lineTo(24, 16);
+      g.lineTo(44, 14);
+      g.lineTo(52, 34);
+      g.lineTo(40, 50);
+      g.lineTo(20, 50);
+      g.closePath();
+      g.fill();
+      g.fillStyle = "#55555c";
+      g.beginPath();
+      g.arc(30, 26, 5, 0, 7);
+      g.arc(42, 36, 3, 0, 7);
+      g.fill();
+      break;
+    case "ingot":
+      g.fillStyle = outline;
+      g.beginPath();
+      g.moveTo(8, 44);
+      g.lineTo(18, 24);
+      g.lineTo(50, 24);
+      g.lineTo(58, 44);
+      g.closePath();
+      g.fill();
+      g.fillStyle = it.color;
+      g.beginPath();
+      g.moveTo(12, 41);
+      g.lineTo(20, 27);
+      g.lineTo(48, 27);
+      g.lineTo(54, 41);
+      g.closePath();
+      g.fill();
+      g.fillStyle = "rgba(255,255,255,.55)";
+      g.fillRect(22, 30, 18, 3);
+      break;
+    case "gem":
+      g.fillStyle = "#1b8f96";
+      g.beginPath();
+      g.moveTo(32, 8);
+      g.lineTo(54, 26);
+      g.lineTo(32, 56);
+      g.lineTo(10, 26);
+      g.closePath();
+      g.fill();
+      g.fillStyle = "#4fe0e6";
+      g.beginPath();
+      g.moveTo(32, 13);
+      g.lineTo(49, 27);
+      g.lineTo(32, 50);
+      g.lineTo(15, 27);
+      g.closePath();
+      g.fill();
+      g.fillStyle = "#ffffff";
+      g.beginPath();
+      g.moveTo(24, 22);
+      g.lineTo(30, 18);
+      g.lineTo(28, 28);
+      g.closePath();
+      g.fill();
+      break;
+    case "bread":
+      g.fillStyle = "#8a5530";
+      g.beginPath();
+      g.ellipse(32, 36, 24, 14, -0.2, 0, 7);
+      g.fill();
+      g.fillStyle = "#d99a55";
+      g.beginPath();
+      g.ellipse(32, 34, 21, 11, -0.2, 0, 7);
+      g.fill();
+      stroke(3, "#f2c98f", [[20, 34], [26, 28]]);
+      stroke(3, "#f2c98f", [[30, 36], [36, 29]]);
+      stroke(3, "#f2c98f", [[40, 37], [45, 31]]);
+      break;
+    case "soup":
+      g.fillStyle = "#6b4426";
+      g.beginPath();
+      g.moveTo(8, 30);
+      g.lineTo(56, 30);
+      g.quadraticCurveTo(54, 54, 32, 54);
+      g.quadraticCurveTo(10, 54, 8, 30);
+      g.fill();
+      g.fillStyle = "#f08a24";
+      g.beginPath();
+      g.ellipse(32, 30, 23, 6, 0, 0, 7);
+      g.fill();
+      g.fillStyle = "#ffd08a";
+      g.beginPath();
+      g.arc(26, 29, 3, 0, 7);
+      g.fill();
+      break;
+    case "pick":
+      handle();
+      stroke(10, outline, [[18, 14], [38, 18], [50, 30], [50, 46]]);
+      stroke(6, it.color, [[18, 14], [38, 18], [50, 30], [50, 46]]);
+      break;
+    case "axe":
+      handle();
+      g.fillStyle = outline;
+      g.beginPath();
+      g.moveTo(34, 12);
+      g.quadraticCurveTo(56, 12, 54, 34);
+      g.lineTo(42, 30);
+      g.lineTo(36, 22);
+      g.closePath();
+      g.fill();
+      g.fillStyle = it.color;
+      g.beginPath();
+      g.moveTo(37, 15);
+      g.quadraticCurveTo(52, 16, 51, 30);
+      g.lineTo(43, 27);
+      g.lineTo(39, 21);
+      g.closePath();
+      g.fill();
+      break;
+    case "sword":
+      stroke(11, outline, [[20, 44], [52, 12]]);
+      stroke(6, it.color, [[20, 44], [52, 12]]);
+      stroke(3, "rgba(255,255,255,.6)", [[26, 36], [48, 14]]);
+      stroke(8, outline, [[14, 36], [28, 50]]);
+      stroke(4, "#e3b84a", [[14, 36], [28, 50]]);
+      stroke(7, "#5a3d22", [[20, 44], [10, 54]]);
+      break;
+  }
+  return cache[id] = c.toDataURL();
 }
 
 // ===== input.js =====
@@ -1390,17 +2174,17 @@ function createInput(canvas2, h) {
   canvas2.addEventListener("pointerup", endLook);
   canvas2.addEventListener("pointercancel", endLook);
   const joyEl = document.getElementById("joy"), knob = document.getElementById("joyKnob");
-  const R = 46;
+  const R2 = 46;
   const moveJoy = (e) => {
     const r2 = joyEl.getBoundingClientRect();
     let dx = e.clientX - (r2.left + r2.width / 2), dy = e.clientY - (r2.top + r2.height / 2);
     const d = Math.hypot(dx, dy);
-    if (d > R) {
-      dx *= R / d;
-      dy *= R / d;
+    if (d > R2) {
+      dx *= R2 / d;
+      dy *= R2 / d;
     }
-    joy.x = dx / R;
-    joy.y = dy / R;
+    joy.x = dx / R2;
+    joy.y = dy / R2;
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
   };
   joyEl.addEventListener("pointerdown", (e) => {
@@ -1559,8 +2343,10 @@ __export(net_exports, {
   onUser: () => onUser,
   saveCloud: () => saveCloud,
   sendEdit: () => sendEdit,
+  sendHit: () => sendHit,
   sendPose: () => sendPose,
   setNick: () => setNick,
+  setPvp: () => setPvp,
   signupEmail: () => signupEmail
 });
 var BASE = "https://www.gstatic.com/firebasejs/10.14.1/";
@@ -1676,7 +2462,14 @@ function enterRoom(code, h) {
     }),
     fb.onChildAdded(pref, (s) => s.key !== me && h.onPlayer(s.key, s.val())),
     fb.onChildChanged(pref, (s) => s.key !== me && h.onPlayer(s.key, s.val())),
-    fb.onChildRemoved(pref, (s) => h.onLeave(s.key))
+    fb.onChildRemoved(pref, (s) => h.onLeave(s.key)),
+    fb.onValue(r(`rooms/${code}/pvp`), (s) => h.onPvp && h.onPvp(!!s.val())),
+    fb.onChildAdded(r(`roomHits/${code}/${me}`), (s) => {
+      const v = s.val();
+      fb.remove(s.ref).catch(() => {
+      });
+      h.onHit && h.onHit(v || {});
+    })
   ];
   const meRef = r(`roomPlayers/${code}/${me}`);
   fb.onDisconnect(meRef).remove();
@@ -1687,6 +2480,11 @@ function sendEdit(x, y, z, b) {
   const k = fb.push(r("roomEdits/" + room.code));
   room.myKeys.add(k.key);
   fb.set(k, { x, y, z, b, u: user.uid }).catch(() => {
+  });
+}
+var setPvp = (on) => fb.set(r(`rooms/${room.code}/pvp`), !!on);
+function sendHit(target2, d, x, z) {
+  if (room) fb.push(r(`roomHits/${room.code}/${target2}`), { f: user.uid, d, x, z, t: Date.now() }).catch(() => {
   });
 }
 function sendPose(p) {
@@ -1712,11 +2510,11 @@ function boxMats(hex) {
   const c = new THREE2.Color(hex);
   return SHADE.map((k) => new THREE2.MeshBasicMaterial({ color: c.clone().multiplyScalar(k) }));
 }
-function faceMat(hex) {
+function faceMat(face = "#fbe3c8") {
   const cv = document.createElement("canvas");
   cv.width = cv.height = 32;
   const g = cv.getContext("2d");
-  g.fillStyle = "#fbe3c8";
+  g.fillStyle = face;
   g.fillRect(0, 0, 32, 32);
   g.fillStyle = "#2a2118";
   g.beginPath();
@@ -1759,19 +2557,20 @@ function label(text) {
   sp.position.y = 2.15;
   return sp;
 }
-function makeAvatar(name, color) {
+function makeAvatar(name, color, face) {
   const group = new THREE2.Group();
   const legs = new THREE2.Mesh(new THREE2.BoxGeometry(0.5, 0.6, 0.3), boxMats("#5a4a3a"));
   legs.position.y = 0.3;
-  const body = new THREE2.Mesh(new THREE2.BoxGeometry(0.62, 0.62, 0.36), boxMats(color));
+  const bodyMats = boxMats(color);
+  const body = new THREE2.Mesh(new THREE2.BoxGeometry(0.62, 0.62, 0.36), bodyMats);
   body.position.y = 0.91;
-  const headMats = boxMats(color);
-  headMats[5] = faceMat(color);
+  const headMats = boxMats(face || "#fbe3c8");
+  headMats[5] = faceMat(face);
   const head = new THREE2.Mesh(new THREE2.BoxGeometry(0.56, 0.56, 0.56), headMats);
   head.position.y = 1.5;
   const tag = label(name);
   group.add(legs, body, head, tag);
-  return { group, head, tag, name, target: null, yaw: 0 };
+  return { group, head, tag, name, bodyMats, color, face, flash: 0, target: null, yaw: 0 };
 }
 var Others = class {
   constructor(scene2) {
@@ -1784,8 +2583,12 @@ var Others = class {
   upsert(id, d) {
     if (!d || typeof d.x !== "number") return;
     let o = this.map.get(id);
+    if (o && (d.c && d.c !== o.color || d.k && d.k !== o.face)) {
+      this.remove(id);
+      o = null;
+    }
     if (!o) {
-      o = makeAvatar(d.n || "친구", d.c || colorFor(id));
+      o = makeAvatar(d.n || "친구", d.c || colorFor(id), d.k);
       o.group.position.set(d.x, d.y, d.z);
       o.yaw = d.r || 0;
       this.scene.add(o.group);
@@ -1815,6 +2618,37 @@ var Others = class {
   clear() {
     [...this.map.keys()].forEach((id) => this.remove(id));
   }
+  flash(id) {
+    const o = this.map.get(id);
+    if (o) o.flash = 0.25;
+  }
+  // 조준선에 맞은 플레이어 (가장 가까운 사람)
+  hit(origin, dir, maxD) {
+    let best = null, bestT = maxD;
+    for (const [id, o] of this.map) {
+      const p = o.group.position, min = [p.x - 0.35, p.y, p.z - 0.35], max = [p.x + 0.35, p.y + 1.8, p.z + 0.35];
+      let t0 = 0, t1 = bestT, miss = false;
+      for (let a = 0; a < 3; a++) {
+        const or = origin.getComponent(a), d = dir.getComponent(a);
+        if (Math.abs(d) < 1e-9) {
+          if (or < min[a] || or > max[a]) {
+            miss = true;
+            break;
+          }
+          continue;
+        }
+        let ta = (min[a] - or) / d, tb = (max[a] - or) / d;
+        if (ta > tb) [ta, tb] = [tb, ta];
+        t0 = Math.max(t0, ta);
+        t1 = Math.min(t1, tb);
+      }
+      if (!miss && t0 <= t1 && t0 < bestT) {
+        best = id;
+        bestT = t0;
+      }
+    }
+    return best ? { id: best, t: bestT } : null;
+  }
   update(dt) {
     const k = 1 - Math.exp(-dt * 12);
     for (const o of this.map.values()) {
@@ -1828,6 +2662,11 @@ var Others = class {
       o.yaw += d * k;
       o.group.rotation.y = o.yaw;
       o.head.rotation.x = (t.p || 0) * 0.6;
+      if (o.flash > 0) {
+        o.flash -= dt;
+        const red = o.flash > 0;
+        o.bodyMats.forEach((m, i) => m.color.set(red ? "#ff4d4d" : o.color).multiplyScalar(SHADE[i]));
+      }
     }
   }
 };
@@ -1905,7 +2744,7 @@ var Mobs = class {
       vel: new THREE3.Vector3(),
       kb: new THREE3.Vector2(),
       onGround: false,
-      hp: 3,
+      hp: 6,
       flash: 0,
       hop: Math.random(),
       cool: 0,
@@ -1947,8 +2786,8 @@ var Mobs = class {
     }
     return best ? { mob: best, t: bestT } : null;
   }
-  damage(m, dirX, dirZ) {
-    m.hp -= 1;
+  damage(m, dirX, dirZ, dmg = 2) {
+    m.hp -= dmg;
     m.flash = 0.25;
     m.kb.set(dirX * 7, dirZ * 7);
     m.vel.y = 5;
@@ -2055,7 +2894,7 @@ function rebuildDirty(limit = 4) {
       chunkGroup.remove(old);
       old.geometry.dispose();
     }
-    const mesh = new THREE4.Mesh(world.buildChunk(cx, cz), blockMaterial);
+    const mesh = new THREE4.Mesh(world.buildChunk(cx, cz), chunkMaterials);
     chunkMeshes.set(key, mesh);
     chunkGroup.add(mesh);
   }
@@ -2113,7 +2952,9 @@ function updatePlayer(dt) {
   const [lx, ly] = input.takeLook();
   P.yaw -= lx;
   P.pitch = Math.max(-1.55, Math.min(1.55, P.pitch - ly));
-  const sp = P.fly ? 10 : 4.6;
+  const wx = Math.floor(P.pos.x), wz = Math.floor(P.pos.z);
+  const inWater = !P.fly && (world.get(wx, Math.floor(P.pos.y + 0.4), wz) === 21 || world.get(wx, Math.floor(P.pos.y + 1.2), wz) === 21);
+  const sp = P.fly ? 10 : inWater ? 2.8 : 4.6;
   let mx = s.mx, mz = s.mz;
   const len = Math.hypot(mx, mz);
   if (len > 1) {
@@ -2124,7 +2965,11 @@ function updatePlayer(dt) {
   const vx = (-sin * mz + cos * mx) * sp + SV.kb.x, vz = (-cos * mz - sin * mx) * sp + SV.kb.y;
   SV.kb.multiplyScalar(Math.max(0, 1 - dt * 6));
   if (P.fly) P.vel.y = ((s.jump ? 1 : 0) - (s.down ? 1 : 0)) * sp;
-  else {
+  else if (inWater) {
+    P.vel.y = Math.max(P.vel.y - 9 * dt, -2.2);
+    if (s.jump) P.vel.y = Math.min(P.vel.y + 30 * dt, 3.4);
+    SV.fallTop = null;
+  } else {
     P.vel.y = Math.max(P.vel.y - 28 * dt, -40);
     if (s.jump && P.onGround) P.vel.y = 8.6;
   }
@@ -2144,13 +2989,13 @@ function updatePlayer(dt) {
     if (SV.on) hurt(20);
   }
 }
-var HARD = { 1: 0.6, 2: 0.5, 3: 1.6, 4: 1.6, 5: 1.1, 6: 1, 7: 1.6, 8: 0.4, 9: 0.5, 10: 0.25, 11: 0.8, 12: 0.8, 13: 0.8, 14: 0.8, 15: 0.8, 16: 0.8, 17: 0.5, 18: 0.1, 19: 0.5 };
 var DAY_LEN = 300;
 var SV = {
   on: false,
   hp: 20,
   inv: {},
-  time: 0.1,
+  dur: {},
+  time: 0.3,
   night: null,
   hurtAt: 0,
   regenAt: 0,
@@ -2159,14 +3004,32 @@ var SV = {
   mineT: 0,
   mineAt: 0,
   attackAt: 0,
+  eatAt: 0,
   spawnAt: 0,
   kb: new THREE4.Vector2()
 };
 var invGet = (id) => SV.inv["b" + id] || 0;
-var invAdd = (id, n) => {
-  SV.inv["b" + id] = Math.max(0, invGet(id) + n);
+function invAdd(id, n) {
+  const before = invGet(id), after = Math.max(0, before + n);
+  if (after) SV.inv["b" + id] = after;
+  else delete SV.inv["b" + id];
+  changed = true;
+  if (before > 0 !== after > 0) buildHotbar();
+  else renderCounts();
+}
+var held = () => HOTBAR[slot];
+function useTool(id) {
+  const max = maxDur(id);
+  if (!max) return;
+  let d = (SV.dur["t" + id] ?? max) - 1;
+  if (d <= 0) {
+    d = max;
+    invAdd(id, -1);
+    toast(`${josa(itemName(id), "이/가")} 닳아서 부서졌어요`);
+  }
+  SV.dur["t" + id] = d;
   renderCounts();
-};
+}
 function daylight(t) {
   const a = 0.55, b = 0.63, c = 0.93;
   if (t < a) return 1;
@@ -2176,10 +3039,26 @@ function daylight(t) {
 }
 var DAY_SKY = new THREE4.Color(SKY);
 var NIGHT_SKY = new THREE4.Color(1844550);
-function applyLight(k) {
-  blockMaterial.color.setScalar(k * k);
-  scene.background.copy(NIGHT_SKY).lerp(DAY_SKY, (k - 0.38) / 0.62);
+var SUNSET = new THREE4.Color(15901566);
+function applyLight(k, t = SV.time) {
+  const s = Math.max(0, 1 - Math.abs(t - 0.58) / 0.06) + Math.max(0, 1 - Math.abs(t - 0.97) / 0.05);
+  const kk = k * k;
+  blockMaterial.color.setRGB(kk, kk * (1 - 0.12 * s), kk * (1 - 0.25 * s));
+  scene.background.copy(NIGHT_SKY).lerp(DAY_SKY, (k - 0.38) / 0.62).lerp(SUNSET, Math.min(0.5, s * 0.5));
   scene.fog.color.copy(scene.background);
+}
+var TIMES = { morning: [0.975, "🌅 아침"], day: [0.3, "☀ 낮"], evening: [0.575, "🌇 저녁"], night: [0.72, "🌙 밤"] };
+function clockLabel(t) {
+  if (daylight(t) < 0.6) return "🌙 밤";
+  if (t > 0.9 || t < 0.06) return "🌅 아침";
+  return t > 0.52 ? "🌇 저녁" : "☀ 낮";
+}
+function setTime(key) {
+  SV.time = TIMES[key][0];
+  applyLight(daylight(SV.time));
+  $("clock").textContent = clockLabel(SV.time);
+  changed = true;
+  toast(`${TIMES[key][1]}으로 바꿨어요`);
 }
 function renderHearts() {
   let h = "";
@@ -2228,6 +3107,8 @@ function updateSurvival(dt, now) {
   SV.time = (SV.time + dt / DAY_LEN) % 1;
   const k = daylight(SV.time);
   applyLight(k);
+  const lab = clockLabel(SV.time);
+  if ($("clock").textContent !== lab) $("clock").textContent = lab;
   const night = k < 0.6;
   if (night !== SV.night) {
     if (SV.night !== null) {
@@ -2235,7 +3116,6 @@ function updateSurvival(dt, now) {
       else if (mobs.count) toast("해가 떴어요! 그림자 네모가 사라졌어요 ☀");
     }
     SV.night = night;
-    $("clock").textContent = night ? "🌙 밤" : "☀ 낮";
     if (!night) mobs.clear();
   }
   if (night && now - SV.spawnAt > 8e3 && mobs.count < 3) {
@@ -2253,16 +3133,27 @@ function updateSurvival(dt, now) {
     setMineBar(0);
   }
 }
-function attackMob() {
-  if (!mobs.count) return false;
+function attack() {
   const dir = new THREE4.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-  const h = mobs.hit(camera.position, dir, 3.5);
-  if (!h) return false;
-  if (target && camera.position.distanceTo(new THREE4.Vector3(target.x + 0.5, target.y + 0.5, target.z + 0.5)) < h.t - 0.4) return false;
+  const m = mobs.count ? mobs.hit(camera.position, dir, 3.5) : null;
+  const pl = room2 && room2.pvp ? others.hit(camera.position, dir, 3.5) : null;
+  const hit = m && (!pl || m.t <= pl.t) ? m : pl;
+  if (!hit) return false;
+  if (target && camera.position.distanceTo(new THREE4.Vector3(target.x + 0.5, target.y + 0.5, target.z + 0.5)) < hit.t - 0.4) return false;
   const now = performance.now();
-  if (now - SV.attackAt < 350) return true;
+  if (now - SV.attackAt < 380) return true;
   SV.attackAt = now;
-  if (mobs.damage(h.mob, dir.x, dir.z)) toast("그림자 네모를 물리쳤어요! ✨");
+  const dmg = attackDamage(held());
+  if (hit.mob) {
+    if (mobs.damage(hit.mob, dir.x, dir.z, dmg)) {
+      toast("그림자 네모를 물리쳤어요! ✨");
+      if (Math.random() < 0.5) invAdd(101, 1);
+    }
+  } else {
+    sendHit(hit.id, dmg, P.pos.x, P.pos.z);
+    others.flash(hit.id);
+  }
+  if (toolOf(held())) useTool(held());
   return true;
 }
 function raycast(maxD = 6) {
@@ -2288,10 +3179,15 @@ function raycast(maxD = 6) {
 }
 var target = null;
 function breakBlock() {
-  if (SV.on && attackMob()) return;
+  if (SV.on && attack()) return;
   if (!target || target.y === 0) return;
   if (!SV.on) {
     setBlock(target.x, target.y, target.z, 0);
+    return;
+  }
+  const id = world.get(target.x, target.y, target.z), h = held();
+  if (!canHarvest(id, h)) {
+    showName(`${josa(itemName(id), "은/는")} ${["", "나무", "돌", "철"][needTier(id)]} 곡괭이 이상이 필요해요`);
     return;
   }
   const key = `${target.x},${target.y},${target.z}`, now = performance.now();
@@ -2300,49 +3196,87 @@ function breakBlock() {
     SV.mineT = 0;
   }
   SV.mineAt = now;
-  SV.mineT += 0.23;
-  const id = world.get(target.x, target.y, target.z), need = HARD[id] ?? 1;
+  SV.mineT += 0.23 * mineSpeed(id, h);
+  const need = HARD[id] ?? 1;
   setMineBar(SV.mineT / need);
   if (SV.mineT + 1e-6 >= need) {
     setBlock(target.x, target.y, target.z, 0);
-    invAdd(id, 1);
+    const drop = dropOf(id);
+    invAdd(drop, 1);
+    if (toolOf(h)) useTool(h);
     SV.mineKey = "";
     setMineBar(0);
-    showName(`+1 ${BLOCKS[id].name}`);
+    showName(`+1 ${itemName(drop)}`);
   }
 }
+function eat(id) {
+  const now = performance.now();
+  if (now - SV.eatAt < 600) return;
+  SV.eatAt = now;
+  if (SV.hp >= 20) {
+    showName("체력이 가득해서 지금은 안 먹어도 돼요");
+    return;
+  }
+  SV.hp = Math.min(20, SV.hp + ITEMS[id].food);
+  renderHearts();
+  invAdd(id, -1);
+  showName(`${itemName(id)} 냠냠! ❤ +${ITEMS[id].food / 2}`);
+}
 function placeBlock() {
-  if (!target) return;
+  const id = held();
+  if (SV.on && ITEMS[id]?.food) {
+    eat(id);
+    return;
+  }
+  if (!target || !id) return;
+  if (!isBlock(id)) {
+    showName(`${josa(itemName(id), "은/는")} 놓을 수 없어요`);
+    return;
+  }
   const x = target.x + target.n[0], y = target.y + target.n[1], z = target.z + target.n[2];
   if (!world.inBounds(x, y, z) || world.get(x, y, z)) return;
   const p = P.pos;
   const hit = x < p.x + W && x + 1 > p.x - W && y < p.y + H && y + 1 > p.y && z < p.z + W && z + 1 > p.z - W;
   if (hit) return;
-  const id = HOTBAR[slot];
-  if (SV.on && invGet(id) <= 0) {
-    showName(`${BLOCKS[id].name} 없음 · 블록을 캐서 모아 보세요`);
-    return;
-  }
+  if (SV.on && invGet(id) <= 0) return;
   setBlock(x, y, z, id);
   if (SV.on) invAdd(id, -1);
 }
-var HOTBAR = BLOCKS.map((b, i) => i).filter((i) => i > 0);
+var ALL_BLOCKS = BLOCKS.map((b, i) => i).filter((i) => i > 0);
+var HOTBAR = ALL_BLOCKS;
 var slot = 0;
-var hotbarEl = $("hotbar");
-HOTBAR.forEach((id, i) => {
-  const b = document.createElement("button");
-  b.className = "slot";
-  b.title = BLOCKS[id].name;
-  b.innerHTML = `<img alt="" src="${blockIcon(id)}"><span>${i < 10 ? (i + 1) % 10 : ""}</span><em></em>`;
-  b.addEventListener("click", () => selectSlot(i));
-  hotbarEl.appendChild(b);
-});
 var nameTimer;
+var hotbarEl = $("hotbar");
+var itemOrder = (id) => toolOf(id) ? 0 : ITEMS[id]?.food ? 1 : isBlock(id) ? 2 : 3;
+function buildHotbar() {
+  const keep = HOTBAR[slot];
+  HOTBAR = SV.on ? Object.keys(SV.inv).map((k2) => +k2.slice(1)).filter((id) => invGet(id) > 0 && (isBlock(id) || ITEMS[id])).sort((a, b) => itemOrder(a) - itemOrder(b) || a - b) : ALL_BLOCKS;
+  hotbarEl.innerHTML = "";
+  HOTBAR.forEach((id, i) => {
+    const b = document.createElement("button");
+    b.className = "slot";
+    b.title = itemName(id);
+    b.innerHTML = `<img alt="" src="${itemIcon(id)}"><span>${i < 10 ? (i + 1) % 10 : ""}</span><em></em><b class="dur" hidden><i></i></b>`;
+    b.addEventListener("click", () => selectSlot(i));
+    hotbarEl.appendChild(b);
+  });
+  if (!HOTBAR.length) hotbarEl.innerHTML = '<p class="empty">가방이 비었어요 · 블록을 꾹 눌러 캐 보세요</p>';
+  const k = HOTBAR.indexOf(keep);
+  slot = k >= 0 ? k : Math.max(0, Math.min(slot, HOTBAR.length - 1));
+  renderCounts();
+  markSlot();
+}
+function markSlot() {
+  const els = hotbarEl.querySelectorAll(".slot");
+  els.forEach((el, k) => el.classList.toggle("sel", k === slot));
+  els[slot]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
 function selectSlot(i) {
+  if (!HOTBAR.length) return;
   slot = (i + HOTBAR.length) % HOTBAR.length;
-  [...hotbarEl.children].forEach((el, k) => el.classList.toggle("sel", k === slot));
-  hotbarEl.children[slot].scrollIntoView({ block: "nearest", inline: "nearest" });
-  showName(BLOCKS[HOTBAR[slot]].name + (SV.on ? ` · ${invGet(HOTBAR[slot])}개` : ""));
+  markSlot();
+  const id = HOTBAR[slot], t = toolOf(id);
+  showName(itemName(id) + (SV.on ? t ? ` · 내구도 ${SV.dur["t" + id] ?? t.dur}/${t.dur}` : ` · ${invGet(id)}개` : ""));
 }
 function showName(text) {
   const nm = $("blockName");
@@ -2352,11 +3286,76 @@ function showName(text) {
   nameTimer = setTimeout(() => nm.classList.remove("show"), 1400);
 }
 function renderCounts() {
-  [...hotbarEl.children].forEach((el, k) => {
-    const n = invGet(HOTBAR[k]);
-    el.querySelector("em").textContent = SV.on ? n : "";
-    el.classList.toggle("none", SV.on && n <= 0);
+  hotbarEl.querySelectorAll(".slot").forEach((el, k) => {
+    const id = HOTBAR[k], n = invGet(id), max = maxDur(id), d = el.querySelector(".dur");
+    el.querySelector("em").textContent = SV.on && (n > 1 || !max) ? n : "";
+    d.hidden = !SV.on || !max;
+    if (SV.on && max) d.firstElementChild.style.width = (SV.dur["t" + id] ?? max) / max * 100 + "%";
   });
+}
+buildHotbar();
+var craftTab = "hand";
+function nearStations() {
+  const set = /* @__PURE__ */ new Set(["hand"]), px = Math.floor(P.pos.x), py = Math.floor(P.pos.y), pz = Math.floor(P.pos.z);
+  for (let x = px - 4; x <= px + 4; x++) for (let y = py - 2; y <= py + 3; y++) for (let z = pz - 4; z <= pz + 4; z++) {
+    const st = BLOCKS[world.get(x, y, z)]?.station;
+    if (st) set.add(st);
+  }
+  return set;
+}
+function openCraft() {
+  if (!SV.on || mode !== "play") return;
+  mode = "craft";
+  if (document.pointerLockElement) document.exitPointerLock();
+  renderCraft();
+  show("craft");
+}
+var canMake = (r2) => r2.ing.every(([id, n]) => invGet(id) >= n);
+function renderCraft() {
+  const near = nearStations(), ok = near.has(craftTab);
+  $("craftTabs").innerHTML = Object.entries(STATIONS).map(([k, name]) => `<button type="button" class="tab${k === craftTab ? " on" : ""}${near.has(k) ? "" : " far"}" data-tab="${k}">${k === "hand" ? "✋" : `<img alt="" src="${itemIcon(STATION_BLOCK[k])}">`}<span>${name}</span></button>`).join("");
+  $("craftTabs").querySelectorAll(".tab").forEach((b) => {
+    b.onclick = () => {
+      craftTab = b.dataset.tab;
+      renderCraft();
+    };
+  });
+  const stName = STATIONS[craftTab];
+  $("craftNote").textContent = ok ? craftTab === "hand" ? "어디서든 만들 수 있어요." : `${stName} 가까이 있어서 만들 수 있어요.` : `🔒 ${stName}에서 4칸 안에 있어야 만들 수 있어요. ${stName}를 만들어 놓은 뒤 가까이 가 보세요.`;
+  $("craftNote").classList.toggle("lock", !ok);
+  const ings = (ing) => ing.map(([id, n]) => `<span class="ing${invGet(id) >= n ? "" : " lack"}"><img alt="" src="${itemIcon(id)}">${itemName(id)} ${invGet(id)}/${n}</span>`).join("");
+  const row = (out, title, ing, label2, can, onClick) => {
+    const el = document.createElement("div");
+    el.className = "recipe";
+    el.innerHTML = `<img class="out" alt="" src="${itemIcon(out)}"><div class="rinfo"><b></b><div class="ings">${ings(ing)}</div></div><button type="button" class="btn small${can ? " primary" : ""}"${can ? "" : " disabled"}>${label2}</button>`;
+    el.querySelector("b").textContent = title;
+    el.querySelector("button").onclick = onClick;
+    $("craftList").appendChild(el);
+  };
+  $("craftList").innerHTML = "";
+  for (const r2 of RECIPES.filter((r3) => r3.st === craftTab))
+    row(r2.out, itemName(r2.out) + (r2.n > 1 ? ` ×${r2.n}` : ""), r2.ing, "만들기", ok && canMake(r2), () => craft(r2));
+  if (craftTab === "anvil") for (const k of Object.keys(SV.inv)) {
+    const id = +k.slice(1), t = toolOf(id);
+    if (!t) continue;
+    const cur = SV.dur["t" + id] ?? t.dur;
+    if (cur >= t.dur) continue;
+    const ing = [[REPAIR_MAT[t.tier], 1]];
+    row(id, `수리: ${itemName(id)} (${cur}/${t.dur})`, ing, "수리하기", ok && invGet(ing[0][0]) >= 1, () => {
+      invAdd(ing[0][0], -1);
+      SV.dur["t" + id] = t.dur;
+      renderCounts();
+      toast(`${josa(itemName(id), "을/를")} 새것처럼 고쳤어요 🔨`);
+      renderCraft();
+    });
+  }
+}
+function craft(r2) {
+  if (!canMake(r2) || !nearStations().has(r2.st)) return;
+  r2.ing.forEach(([id, n]) => invAdd(id, -n));
+  invAdd(r2.out, r2.n);
+  toast(`${r2.n > 1 ? `${itemName(r2.out)} ${r2.n}개를` : josa(itemName(r2.out), "을/를")} 만들었어요! ✨`);
+  renderCraft();
 }
 var mode = "title";
 var changed = false;
@@ -2386,7 +3385,7 @@ var input = createInput(canvas, {
 });
 function show(id) {
   for (const el of document.querySelectorAll(".overlay")) el.hidden = el.id !== id;
-  $("hud").hidden = !(mode === "play" || mode === "pause" || mode === "dead");
+  $("hud").hidden = !(mode === "play" || mode === "pause" || mode === "dead" || mode === "craft");
 }
 function play() {
   mode = "play";
@@ -2438,6 +3437,7 @@ var pose = () => ({
   mode: SV.on ? "survival" : "creative",
   hp: SV.hp,
   inv: SV.inv,
+  dur: SV.dur,
   time: SV.time
 });
 var canAutoSave = () => !room2 || room2.host;
@@ -2481,7 +3481,8 @@ function startWorld(m, saved, { fresh = !saved } = {}) {
   meta.mode = SV.on ? "survival" : "creative";
   SV.hp = pl?.hp > 0 ? pl.hp : 20;
   SV.inv = { ...pl?.inv || {} };
-  SV.time = pl?.time ?? 0.1;
+  SV.dur = { ...pl?.dur || {} };
+  SV.time = pl?.time ?? 0.3;
   SV.night = null;
   SV.fallTop = null;
   SV.kb.set(0, 0);
@@ -2489,10 +3490,12 @@ function startWorld(m, saved, { fresh = !saved } = {}) {
   if (SV.on) P.fly = false;
   document.body.classList.toggle("surv", SV.on);
   $("hearts").hidden = !SV.on;
-  $("clock").hidden = !SV.on;
+  $("clock").hidden = false;
+  $("clock").textContent = clockLabel(SV.time);
+  slot = 0;
+  buildHotbar();
   renderHearts();
-  renderCounts();
-  applyLight(SV.on ? daylight(SV.time) : 1);
+  applyLight(daylight(SV.time));
   $("tFly").classList.toggle("active", P.fly);
   $("worldName").textContent = m.name;
   changed = false;
@@ -2500,9 +3503,21 @@ function startWorld(m, saved, { fresh = !saved } = {}) {
   if (fresh) doSave(false);
   play();
 }
-function joinNet(code, host, name) {
-  room2 = { code, host, name };
+function joinNet(code, host, name, pvp = false) {
+  room2 = { code, host, name, pvp };
   enterRoom(code, {
+    onPvp: (on) => {
+      if (!room2 || room2.pvp === on) return;
+      room2.pvp = on;
+      renderRoomBox();
+      if (SV.on) toast(on ? "⚔ 서로 때리기가 켜졌어요!" : "🕊 서로 때리기가 꺼졌어요");
+    },
+    onHit: (v) => {
+      if (!room2?.pvp || !SV.on || Date.now() - (v.t || 0) > 1e4) return;
+      hurt(v.d, v.x, v.z);
+      const who = others.map.get(v.f)?.name;
+      if (who) showName(`${who}에게 맞았어요!`);
+    },
     onEdit: (e) => setBlock(e.x, e.y, e.z, e.b, true),
     onPlayer: (id, d) => {
       others.upsert(id, d);
@@ -2537,6 +3552,12 @@ function renderRoomBox() {
     $("roomCode").textContent = room2.code;
     $("roomHint").textContent = room2.host ? "친구에게 코드나 링크를 보내 주세요." : `'${room2.name}' 방에서 같이 짓는 중이에요.`;
   }
+  $("pvpRow").hidden = !room2 || !SV.on;
+  if (room2) {
+    $("pvpToggle").checked = !!room2.pvp;
+    $("pvpToggle").disabled = !room2.host;
+    $("pvpNote").textContent = room2.host ? "켜면 방에 있는 친구끼리 때릴 수 있어요." : "방장만 바꿀 수 있어요.";
+  }
 }
 async function ensureUser() {
   if (!currentUser()) await loginGuest();
@@ -2545,7 +3566,7 @@ $("btnOpenRoom").onclick = () => busy(async () => {
   $("btnOpenRoom").disabled = true;
   try {
     await ensureUser();
-    const code = await createRoom(meta.name, { ...serialize(world, null), mode: meta.mode });
+    const code = await createRoom(meta.name, { ...serialize(world, null), mode: meta.mode, pvp: false });
     joinNet(code, true, meta.name);
     renderRoomBox();
     toast("방을 열었어요! 코드: " + code);
@@ -2584,7 +3605,7 @@ $("joinForm").onsubmit = (e) => {
       history.replaceState(null, "", location.pathname);
       startWorld({ id: newId(), name: data.name + " (같이 짓기)", where: "cloud", mode: data.mode || "creative" }, deserialize(data), { fresh: false });
       spawn();
-      joinNet(code, false, data.name);
+      joinNet(code, false, data.name, !!data.pvp);
       toast(`'${data.name}' 방에 들어왔어요!`);
     } finally {
       $("joinSubmit").disabled = false;
@@ -2598,7 +3619,7 @@ function sendPose2(now) {
   if (!room2 || now - lastPose < 100) return;
   lastPose = now;
   const f = (v) => Math.round(v * 100) / 100;
-  const p = { n: nickname(), c: colorFor(myId()), x: f(P.pos.x), y: f(P.pos.y), z: f(P.pos.z), r: f(P.yaw), p: f(P.pitch) };
+  const p = { n: nickname(), c: skin.shirt || colorFor(myId()), k: skin.face || SKINS[0], x: f(P.pos.x), y: f(P.pos.y), z: f(P.pos.z), r: f(P.yaw), p: f(P.pitch) };
   const key = JSON.stringify(p);
   if (key === lastSent && now - lastSentAt < 3e3) return;
   lastSent = key;
@@ -2752,6 +3773,52 @@ $("btnShare").onclick = async () => {
     prompt("이 주소를 복사해 주세요", SITE_URL);
   }
 };
+document.querySelectorAll("[data-time]").forEach((b) => {
+  b.onclick = () => setTime(b.dataset.time);
+});
+$("pvpToggle").onchange = (e) => busy(async () => {
+  const on = e.target.checked;
+  await setPvp(on);
+  room2.pvp = on;
+  renderRoomBox();
+  toast(on ? "⚔ 서로 때리기를 켰어요" : "🕊 서로 때리기를 껐어요");
+});
+$("btnCraft").onclick = () => openCraft();
+$("btnCraftClose").onclick = () => play();
+addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || !(e.code === "KeyE" || e.code === "KeyC")) return;
+  if (mode === "play") openCraft();
+  else if (mode === "craft") play();
+});
+var SKINS = ["#fbe3c8", "#f1c27d", "#c68642", "#8d5524"];
+var SHIRTS = [...COLORS, "#ece8e0", "#3a3a46"];
+var skin = {};
+try {
+  skin = JSON.parse(safeGet("nemo:skin")) || {};
+} catch {
+}
+function renderSkin() {
+  const sw = (list, key, cur) => list.map((c) => `<button type="button" class="sw${c === cur ? " on" : ""}" style="background:${c}" data-k="${key}" data-c="${c}" aria-label="${c}"></button>`).join("");
+  $("shirtSw").innerHTML = sw(SHIRTS, "shirt", skin.shirt || SHIRTS[0]);
+  $("faceSw").innerHTML = sw(SKINS, "face", skin.face || SKINS[0]);
+  $("pvShirt").style.background = skin.shirt || SHIRTS[0];
+  $("pvHead").style.background = skin.face || SKINS[0];
+  document.querySelectorAll("#skin .sw").forEach((b) => {
+    b.onclick = () => {
+      skin[b.dataset.k] = b.dataset.c;
+      safeSet("nemo:skin", JSON.stringify(skin));
+      renderSkin();
+    };
+  });
+}
+$("btnSkin").onclick = () => {
+  renderSkin();
+  show("skin");
+};
+$("btnSkinDone").onclick = () => {
+  show("title");
+  toast("캐릭터를 꾸몄어요! 같이 짓기에서 친구에게 이 모습으로 보여요");
+};
 $("btnResume").onclick = play;
 $("btnSave").onclick = () => doSave(true);
 $("btnSavePause").onclick = () => doSave(true);
@@ -2825,7 +3892,9 @@ init().then((ok) => {
 });
 window.nemo = { get world() {
   return world;
-}, P, SV, mobs, hurt, breakBlock, placeBlock, get target() {
+}, P, SV, mobs, hurt, invAdd, openCraft, setTime, get hotbar() {
+  return HOTBAR;
+}, selectSlot, breakBlock, placeBlock, get target() {
   return target;
 }, setBlock, startWorld, doSave, net: net_exports, others, get mode() {
   return mode;
